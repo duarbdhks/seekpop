@@ -35,6 +35,20 @@ SeekPop opens a search palette when you press Option+Space in any app. It search
 4. Reload the Hammerspoon config.
 5. Press Option+Space, click **Folders**, and add the folders you want to search.
 
+## Open SeekPop as an app
+
+To open SeekPop from Spotlight, Launchpad, or the Dock, build the launcher app.
+
+```sh
+~/develop/seekpop/scripts/install-app.sh
+```
+
+The script creates `~/Applications/SeekPop.app`. The app opens `hammerspoon://seekpop`, which shows the palette, and starts Hammerspoon first if it is not running. If `app/AppIcon.png` exists, the script turns it into the app icon. Run the script again after you pull changes.
+
+## Start SeekPop at login
+
+SeekPop runs inside Hammerspoon, so it starts when Hammerspoon starts. In Hammerspoon's settings, turn on **Launch Hammerspoon at login**. You can also run `hs.autoLaunch(true)` in the Hammerspoon console.
+
 ## Add folders to search
 
 SeekPop starts with no folders. To add one, press ⌘, in the palette, then click **Add folder…**. To pick a hidden folder such as `~/.codex/plans`, press ⌘⇧. in the picker to show hidden folders, or press ⌘⇧G and type the path. SeekPop saves the list in the Hammerspoon setting `SeekPop.roots`.

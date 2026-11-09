@@ -36,7 +36,7 @@ local HOME = os.getenv("HOME")
 local ROOTS_KEY = "SeekPop.roots"
 local RG_CANDIDATES = { "/opt/homebrew/bin/rg", "/usr/local/bin/rg" }
 local PREVIEW_BYTES = 256 * 1024
-local CLOSE_FALLBACK_SECONDS = 0.23
+local CLOSE_FALLBACK_SECONDS = 0.3
 local BACKDROP_WIDTH = 640
 local SCREEN_RECORDING_PANE = "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
 
@@ -268,6 +268,7 @@ function obj:start()
       if action == "focusChange" and focused == false and not self._pickingFolder then self:_fire("hide") end
     end)
     :html(html)
+  hs.urlevent.bind("seekpop", function() self:show() end)
   return self
 end
 
@@ -276,6 +277,7 @@ end
 --- Cancels any search and deletes the palette window.
 function obj:stop()
   if not self._wv then return self end
+  hs.urlevent.bind("seekpop", nil)
   if self._run then self._run:cancel() end
   if self._closeTimer then self._closeTimer:stop() end
   if self._backdropTimer then self._backdropTimer:stop() end
