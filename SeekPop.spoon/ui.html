@@ -170,11 +170,11 @@ body[data-searching] .spin2 { animation-play-state: running; }
   filter: blur(32px) saturate(1.8) var(--backdrop-tone);
   opacity: 0;
 }
-body[data-blur=on] .backdrop { opacity: 1; transition: opacity 160ms var(--fade); }
+body[data-blur=on] .backdrop { opacity: 1; }
 .tint { position: absolute; inset: 0; z-index: -1; background: var(--tint-solid); }
 /* Only once open: the tint switch made while the palette is still invisible should land at once, not shift during the fade-in. */
 body[data-phase=open] .tint { transition: background-color 200ms var(--out); }
-body:is([data-blur=on], [data-blur=wait]) .tint { background: var(--tint-blur); }
+body[data-blur=on] .tint { background: var(--tint-blur); }
 .aurora { position: absolute; inset: 0; z-index: -1; opacity: 0; mix-blend-mode: var(--aurora-blend); transition: opacity 150ms var(--fade); }
 .aurora i { position: absolute; width: 62%; aspect-ratio: 1; border-radius: 50%; }
 .aurora i { background: radial-gradient(closest-side, var(--aurora-ink), transparent); }
@@ -417,7 +417,6 @@ body[data-phase=hidden] *, body[data-phase=hidden] *::before, body[data-phase=hi
   #stage { transform: none !important; filter: none !important; transition: opacity 120ms !important; }
   .glyph, #q, #foldersBtn, .results, .empty, footer, .detail, header::after { opacity: 1 !important; transform: none !important; filter: none !important; }
   .aurora { opacity: var(--aurora) !important; }
-  body[data-blur=on] .backdrop { transition: opacity 120ms !important; }
   footer[data-toast] .toast { animation: fade-in 120ms both !important; }
   footer[data-toast] .toast path { stroke-dashoffset: 0; }
   .view-folders, body[data-view=folders] .view-search { transform: none; filter: none; }
@@ -751,21 +750,17 @@ const confirmations = { open: close, reveal: close, copy: () => copied('Copied')
 
 const handlers = {
   show(msg) {
-    cancel('close', 'copy', 'frost');
+    cancel('close', 'copy');
     delete $('foot').dataset.toast;
+    // A fresh open brings its desktop snapshot along; reopening mid-close keeps the one already in place.
+    if (/^data:image\//.test(msg.backdrop || '')) $('backdrop').style.backgroundImage = 'url(' + JSON.stringify(msg.backdrop) + ')';
     const snapshot = Boolean($('backdrop').style.backgroundImage);
     input.value = '';
     Object.assign(state, {
-      phase: 'opening', view: 'search', notice: null, blur: msg.blur ? (snapshot ? 'on' : 'wait') : 'off',
+      phase: 'opening', view: 'search', notice: null, blur: msg.blur && snapshot ? 'on' : 'off',
       query: '', items: null, selected: -1, preview: null, resultsFor: null, pendingOpen: false,
     });
     renderPreview();
-    // The desktop snapshot arrives just after show; if it never does, fall back to the solid tint.
-    if (state.blur === 'wait') later('frost', 250, () => {
-      if (state.blur !== 'wait') return;
-      state.blur = 'off';
-      render();
-    });
     render();
     input.focus();
     later('open', 420, () => {
@@ -775,7 +770,7 @@ const handlers = {
     });
   },
   hide() {
-    cancel('debounce', 'searching', 'copy', 'open', 'frost', 'settle');
+    cancel('debounce', 'searching', 'copy', 'open', 'settle');
     Object.assign(state, { phase: 'closing', searching: false, pendingOpen: false });
     render();
     later('close', 200, () => {
@@ -787,17 +782,6 @@ const handlers = {
         if (state.phase === 'hidden') post({ type: 'closed' });
       }));
     });
-  },
-  backdrop(msg) {
-    if (!/^data:image\//.test(msg.url || '')) return;
-    const img = new Image();
-    img.src = msg.url;
-    img.decode().then(() => {
-      $('backdrop').style.backgroundImage = 'url(' + JSON.stringify(msg.url) + ')';
-      if (state.phase === 'hidden') return;
-      state.blur = 'on';
-      render();
-    }, () => {});
   },
   results(msg) {
     if (msg.id !== state.queryId) return;

@@ -30,11 +30,12 @@ cat > "$contents/MacOS/SeekPop" <<'LAUNCHER'
 #!/bin/sh
 # Hammerspoon handles hammerspoon:// URLs only after its config has loaded.
 # shortcut: a cold start waits a fixed 2 s; poll for the config if a first open is ever missed.
+# -g keeps Hammerspoon in the background: the palette takes keys on its own, and the app behind stays active.
 if ! pgrep -xq Hammerspoon; then
-	open -a Hammerspoon
+	open -g -a Hammerspoon
 	sleep 2
 fi
-open "hammerspoon://seekpop"
+open -g "hammerspoon://seekpop"
 LAUNCHER
 chmod +x "$contents/MacOS/SeekPop"
 

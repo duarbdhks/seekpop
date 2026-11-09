@@ -37,7 +37,7 @@ local ROOTS_KEY = "SeekPop.roots"
 local RG_CANDIDATES = { "/opt/homebrew/bin/rg", "/usr/local/bin/rg" }
 local PREVIEW_BYTES = 256 * 1024
 local CLOSE_FALLBACK_SECONDS = 0.3
-local BACKDROP_WIDTH = 640
+local BACKDROP_WIDTH = 320
 local PANEL_HEIGHT = 580
 local SCREEN_RECORDING_PANE = "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
 
@@ -58,7 +58,7 @@ function enter.shown(self, from)
   if self._closeTimer then self._closeTimer:stop() end
   if from == "closing" then
     -- Still on screen mid-fade: keep its place and backdrop, since a new snapshot would capture the palette itself.
-    wv:hswindow():focus()
+    wv:show()
     return self:_send({ type = "show", theme = self._dark and "dark" or "light", blur = self._blur })
   end
   self._previousApp = hs.application.frontmostApplication()
@@ -68,7 +68,9 @@ function enter.shown(self, from)
   local x, y = f.x + (f.w - w) / 2, f.y + math.floor(f.h * 0.18)
   local snap = { x = x - full.x - 40, y = y - full.y - 40, w = w + 80, h = h + 80 }
   local shot = hs.screenRecordingState() and screen:snapshot(snap) or nil
-  self._blur = shot ~= nil
+  -- Encoded before the page opens, so the first visible frame is already frosted and the fade runs on a free main thread.
+  local backdrop = shot and shot:copy():size({ w = BACKDROP_WIDTH, h = math.floor(BACKDROP_WIDTH * snap.h / snap.w) }, true):encodeAsURLString(true, "JPEG")
+  self._blur = backdrop ~= nil
   wv:frame({ x = x - 72, y = y - 72, w = w + 144, h = h + 144 })
   local dark = hs.host.interfaceStyle() == "Dark"
   if dark ~= self._dark then
@@ -76,15 +78,8 @@ function enter.shown(self, from)
     self._dark = dark
   end
   wv:show()
-  wv:hswindow():focus()
-  self:_send({ type = "show", theme = dark and "dark" or "light", blur = self._blur })
+  self:_send({ type = "show", theme = dark and "dark" or "light", blur = self._blur, backdrop = backdrop })
   self:_sendFolders()
-  if shot then
-    self._backdropTimer = hs.timer.doAfter(0, function()
-      local size = { w = BACKDROP_WIDTH, h = math.floor(BACKDROP_WIDTH * snap.h / snap.w) }
-      self:_send({ type = "backdrop", url = shot:copy():size(size, true):encodeAsURLString(true, "JPEG") })
-    end)
-  end
 end
 
 function enter.closing(self)
@@ -202,6 +197,8 @@ end
 
 function handlers.addFolder(self)
   self._pickingFolder = true
+  -- The panel never activates Hammerspoon, but the modal folder picker needs it active to take keys.
+  hs.focus()
   local chosen = hs.dialog.chooseFileOrFolder("Choose folders to search", "~", false, true, true)
   self._pickingFolder = false
   local picked = {}
@@ -217,7 +214,7 @@ function handlers.addFolder(self)
     end
   end
   hs.settings.set(ROOTS_KEY, roots)
-  if self._wv then self._wv:hswindow():focus() end
+  if self._wv then self._wv:show() end
   self:_sendFolders()
 end
 
@@ -261,7 +258,8 @@ function obj:start()
   self._uc, self._state, self._ready, self._queue, self._items, self._dark = uc, "hidden", false, {}, {}, nil
   -- Created at its final height: the page folds by 100vh, and a first-open resize from 10 pt flashed the full panel.
   self._wv = hs.webview.new({ x = 0, y = 0, w = 10, h = PANEL_HEIGHT + 144 }, {}, uc)
-    :windowStyle({ "borderless" })
+    -- Non-activating, like Spotlight: the panel takes keys while the app behind stays active and keeps its look.
+    :windowStyle({ "borderless", "nonactivating" })
     :transparent(true)
     :allowTextEntry(true)
     :level(hs.drawing.windowLevels.modalPanel)
@@ -282,7 +280,6 @@ function obj:stop()
   hs.urlevent.bind("seekpop", nil)
   if self._run then self._run:cancel() end
   if self._closeTimer then self._closeTimer:stop() end
-  if self._backdropTimer then self._backdropTimer:stop() end
   self._wv:delete()
   self._wv, self._uc, self._run, self._state = nil, nil, nil, "hidden"
   return self
