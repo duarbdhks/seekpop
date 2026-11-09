@@ -7,10 +7,12 @@
 <title>SeekPop</title>
 <style>
 @property --sweep { syntax: '<angle>'; inherits: false; initial-value: 400deg; }
+@property --reveal { syntax: '<length>'; inherits: true; initial-value: 0px; }
 
 :root {
   --spring: cubic-bezier(.34, 1.36, .64, 1);
   --out: cubic-bezier(.22, 1, .36, 1);
+  --glide: cubic-bezier(.32, .72, 0, 1);
   --iris: #FF9F43, #FF4FA3, #A45CFF, #4F7BFF, #22D3EE;
   --tint-blur: rgba(30, 27, 44, .52);
   --tint-solid: rgba(24, 22, 36, .90);
@@ -22,6 +24,7 @@
   --raised-edge: rgba(255, 255, 255, .11);
   --drop: rgba(0, 0, 0, .45);
   --backdrop-tone: brightness(.55);
+  --tone-0: brightness(1);
   --mark: linear-gradient(90deg, rgba(255, 79, 163, .36), rgba(164, 92, 255, .36));
   --warn: #FFB547;
   --danger: #FF7A85;
@@ -40,6 +43,7 @@
     --raised-edge: rgba(0, 0, 0, .06);
     --drop: rgba(40, 30, 80, .22);
     --backdrop-tone: contrast(.55) brightness(1.45);
+    --tone-0: contrast(1) brightness(1);
     --mark: linear-gradient(90deg, rgba(255, 79, 163, .30), rgba(164, 92, 255, .30));
     --warn: #B25E00;
     --danger: #D70015;
@@ -66,12 +70,25 @@ button { font: inherit; color: inherit; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--text-2); }
 
 #stage { position: relative; width: 100%; height: 100%; }
-#stage::before { content: ""; position: absolute; inset: 0; border-radius: 26px; box-shadow: 0 20px 50px var(--drop); }
+#stage::before { content: ""; position: absolute; inset: 0 0 var(--reveal); border-radius: 26px; box-shadow: 0 20px 50px var(--drop); }
 body[data-phase=hidden] #stage { visibility: hidden; }
-body[data-phase=opening] #stage { animation: stage-in 320ms var(--spring) both; }
-body[data-phase=closing] #stage { animation: stage-out 180ms var(--out) both; }
-@keyframes stage-in { from { opacity: 0; transform: translateY(8px) scale(.94); filter: blur(10px); } }
-@keyframes stage-out { to { opacity: 0; transform: scale(.97); filter: blur(6px); } }
+/* Open: the glass condenses as a search bar, then the results unfold below it, and the content follows in order. */
+body[data-phase=opening] #stage { animation: condense 240ms var(--out) both, unfold 420ms 60ms var(--glide) both; }
+body[data-phase=opening] :is(.glyph, #q) { animation: rise 260ms 40ms var(--out) both; }
+body[data-phase=opening] #foldersBtn { animation: rise 260ms 110ms var(--out) both; }
+body[data-phase=opening] header::after { animation: draw-line 440ms 110ms var(--glide) both; }
+body[data-phase=opening] :is(.results, .empty) { animation: rise 300ms 150ms var(--out) both; }
+body[data-phase=opening] .detail { animation: slide-in 340ms 210ms var(--out) both; }
+body[data-phase=opening] footer { animation: rise 280ms 270ms var(--out) both; }
+body[data-phase=opening] .aurora { animation: bloom-in 700ms 120ms var(--out) both; }
+body[data-phase=closing] #stage { animation: stage-out 160ms var(--out) both; }
+@keyframes condense { from { opacity: 0; transform: translateY(-6px) scale(.97); filter: blur(8px); } }
+@keyframes unfold { from { --reveal: calc(100vh - 213px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(5px); } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(12px); filter: blur(3px); } }
+@keyframes draw-line { from { opacity: 0; transform: scaleX(0); } }
+@keyframes bloom-in { from { opacity: 0; } }
+@keyframes stage-out { to { opacity: 0; transform: translateY(-4px) scale(.975); filter: blur(6px); } }
 
 /* Rim light: one rotating conic gradient, drawn as a blurred bloom below the glass, a soft edge light and a 1.5px ring above it. */
 .halo { position: absolute; inset: -72px; pointer-events: none; transition: filter 300ms var(--out); }
@@ -81,13 +98,13 @@ body[data-phase=opening] .halo {
 }
 @keyframes ignite { from { --sweep: 0deg; } to { --sweep: 400deg; } }
 body[data-searching] .halo { filter: saturate(1.6) brightness(1.15); }
-.ring { position: absolute; inset: 72px; border-radius: 26px; overflow: hidden; container-type: size; }
+.ring { position: absolute; inset: 72px 72px calc(72px + var(--reveal)); border-radius: 26px; overflow: hidden; container-type: size; }
 .cut {
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
-.bloom { inset: 64px; filter: blur(28px); animation: breathe 2s ease-in-out infinite alternate; }
+.bloom { inset: 64px 64px calc(64px + var(--reveal)); filter: blur(28px); animation: breathe 2s ease-in-out infinite alternate; }
 @keyframes breathe { from { opacity: .35; } to { opacity: .55; } }
 .rim { padding: 1.5px; }
 .edge { position: absolute; inset: 0; filter: blur(6px); opacity: .7; }
@@ -112,7 +129,7 @@ body[data-searching] .spin2 { animation-play-state: running; }
   border-radius: 26px;
   overflow: hidden;
   /* WebKit lets filtered children escape a rounded overflow clip; clip-path keeps the corners round. */
-  clip-path: inset(0 round 26px);
+  clip-path: inset(0 0 var(--reveal) 0 round 26px);
   isolation: isolate;
   display: flex; flex-direction: column;
 }
@@ -127,9 +144,11 @@ body[data-searching] .spin2 { animation-play-state: running; }
   filter: blur(32px) saturate(1.8) var(--backdrop-tone);
   opacity: 0;
 }
-body[data-blur=on] .backdrop { opacity: 1; transition: opacity 200ms var(--out); }
-.tint { position: absolute; inset: 0; z-index: -1; background: var(--tint-solid); }
-body[data-blur=on] .tint { background: var(--tint-blur); transition: background-color 200ms var(--out); }
+/* The snapshot starts sharp, so it lines up with the real desktop whenever it arrives, then frosts over. */
+body[data-blur=on] .backdrop { opacity: 1; animation: frost 480ms var(--out) both; }
+@keyframes frost { from { opacity: 0; filter: blur(0px) saturate(1) var(--tone-0); } 25% { opacity: 1; } }
+.tint { position: absolute; inset: 0; z-index: -1; background: var(--tint-solid); transition: background-color 200ms var(--out); }
+body:is([data-blur=on], [data-blur=wait]) .tint { background: var(--tint-blur); }
 .aurora { position: absolute; inset: 0; z-index: -1; opacity: var(--aurora); mix-blend-mode: var(--aurora-blend); }
 .aurora i { position: absolute; width: 62%; aspect-ratio: 1; border-radius: 50%; }
 .aurora i:nth-child(1) { left: -14%; top: -48%; background: radial-gradient(closest-side, #FF4FA3, transparent); animation: drift-a 20s ease-in-out infinite alternate; }
@@ -140,11 +159,12 @@ body[data-blur=on] .tint { background: var(--tint-blur); transition: background-
 @keyframes drift-c { to { transform: translate(18%, -20%) scale(1.1); } }
 
 header {
-  flex: none; height: 68px;
+  position: relative;
+  flex: none; height: 69px; box-sizing: border-box;
   display: flex; align-items: center; gap: 14px;
   padding: 0 18px 0 24px;
-  border-bottom: 1px solid var(--hairline);
 }
+header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--hairline); }
 .glyph { position: relative; flex: none; width: 24px; height: 24px; }
 .glyph svg { position: absolute; inset: 0; width: 24px; height: 24px; overflow: visible; transition: opacity 200ms var(--out), transform 320ms var(--spring); }
 .lens { fill: none; stroke: var(--text-2); stroke-width: 2.2; stroke-linecap: round; }
@@ -472,7 +492,7 @@ const clone = id => $(id).content.firstElementChild.cloneNode(true);
 const state = {
   phase: 'hidden', view: 'search', query: '', queryId: 0, searching: false,
   items: null, selected: -1, elapsedMs: null, warnings: [], preview: null,
-  roots: null, screenRecording: true, blur: false, notice: null,
+  roots: null, screenRecording: true, blur: 'off', notice: null,
 };
 const timers = {};
 const later = (name, ms, fn) => { clearTimeout(timers[name]); timers[name] = setTimeout(fn, ms); };
@@ -485,7 +505,7 @@ const hints = {
 };
 
 function render() {
-  Object.assign(body.dataset, { phase: state.phase, view: state.view, blur: state.blur ? 'on' : 'off' });
+  Object.assign(body.dataset, { phase: state.phase, view: state.view, blur: state.blur });
   body.toggleAttribute('data-searching', state.searching);
   const q = state.query.trim(), n = state.items?.length ?? 0;
   const noun = (q ? ['result', 'results'] : ['file', 'files'])[n === 1 ? 0 : 1];
@@ -718,10 +738,17 @@ const close = () => post({ type: 'close' });
 const confirmations = { open: close, reveal: close, copy: () => copied('Copied'), copyPath: () => copied('Path copied') };
 
 const handlers = {
-  show() {
-    cancel('close', 'copy');
+  show(msg) {
+    cancel('close', 'copy', 'frost');
     delete $('foot').dataset.toast;
-    Object.assign(state, { phase: 'opening', view: 'search', notice: null });
+    const snapshot = Boolean($('backdrop').style.backgroundImage);
+    Object.assign(state, { phase: 'opening', view: 'search', notice: null, blur: msg.blur ? (snapshot ? 'on' : 'wait') : 'off' });
+    // The desktop snapshot arrives just after show; if it never does, fall back to the solid tint.
+    if (state.blur === 'wait') later('frost', 250, () => {
+      if (state.blur !== 'wait') return;
+      state.blur = 'off';
+      render();
+    });
     render();
     input.focus();
     input.select();
@@ -733,14 +760,17 @@ const handlers = {
     });
   },
   hide() {
-    cancel('debounce', 'searching', 'copy', 'open');
+    cancel('debounce', 'searching', 'copy', 'open', 'frost');
     Object.assign(state, { phase: 'closing', searching: false });
     render();
-    later('close', 180, () => {
-      Object.assign(state, { phase: 'hidden', blur: false });
+    later('close', 160, () => {
+      Object.assign(state, { phase: 'hidden', blur: 'off' });
       $('backdrop').style.backgroundImage = '';
       render();
-      post({ type: 'closed' });
+      // Let the empty frame paint before the window hides, so the next open does not flash the old one.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (state.phase === 'hidden') post({ type: 'closed' });
+      }));
     });
   },
   backdrop(msg) {
@@ -749,7 +779,8 @@ const handlers = {
     img.src = msg.url;
     img.decode().then(() => {
       $('backdrop').style.backgroundImage = 'url(' + JSON.stringify(msg.url) + ')';
-      state.blur = true;
+      if (state.phase === 'hidden') return;
+      state.blur = 'on';
       render();
     }, () => {});
   },
