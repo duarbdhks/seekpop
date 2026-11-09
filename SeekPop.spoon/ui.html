@@ -26,7 +26,6 @@
   --raised-edge: rgba(255, 255, 255, .11);
   --drop: rgba(0, 0, 0, .45);
   --backdrop-tone: brightness(.55);
-  --tone-0: brightness(1);
   --mark: linear-gradient(90deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .18));
   --mark-hit: linear-gradient(90deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, .32));
   --selection: rgba(255, 255, 255, .22);
@@ -53,7 +52,6 @@
     --raised-edge: rgba(0, 0, 0, .06);
     --drop: rgba(0, 0, 0, .18);
     --backdrop-tone: contrast(.55) brightness(1.45);
-    --tone-0: contrast(1) brightness(1);
     --mark: linear-gradient(90deg, rgba(0, 0, 0, .08), rgba(0, 0, 0, .08));
     --mark-hit: linear-gradient(90deg, rgba(0, 0, 0, .14), rgba(0, 0, 0, .14));
     --selection: rgba(0, 0, 0, .12);
@@ -87,10 +85,11 @@ button { font: inherit; color: inherit; }
 /* Closed and open states are joined by transitions, not keyframes, so toggling midway reverses from wherever the palette is. */
 #stage {
   position: relative; width: 100%; height: 100%;
-  opacity: 0; transform: translateY(-6px) scale(.97); filter: blur(8px);
+  /* No filter here: blurring the whole stage smeared its shadow into a grey haze wider than the bar on open. */
+  opacity: 0; transform: translateY(-4px) scale(.985);
   --reveal: var(--fold);
   /* The fold resets only after the fade, so reopening during a close does not fold and unfold the panel. */
-  transition: opacity 200ms var(--fade), transform 200ms var(--fade), filter 200ms var(--fade), --reveal 0s 220ms;
+  transition: opacity 200ms var(--fade), transform 200ms var(--fade), --reveal 0s 220ms;
 }
 #stage::before { content: ""; position: absolute; inset: 0 0 var(--reveal); border-radius: 26px; box-shadow: 0 20px 50px var(--drop); }
 body[data-phase=hidden] #stage { visibility: hidden; }
@@ -100,12 +99,12 @@ body[data-phase=hidden] #stage { visibility: hidden; }
 header::after { opacity: 0; transform: scaleX(0); transition: opacity 150ms var(--fade), transform 150ms var(--fade); }
 /* Open: the glass condenses as a search bar. The results unfold below it only once a search returns. */
 [data-open=y] #stage {
-  opacity: 1; transform: none; filter: none;
-  transition: opacity 240ms var(--fade), transform 320ms var(--settle), filter 260ms var(--fade), --reveal 220ms var(--glide);
+  opacity: 1; transform: none;
+  transition: opacity 240ms var(--fade), transform 320ms var(--settle), --reveal 220ms var(--glide);
 }
 [data-open=y][data-size=panel] #stage {
   --reveal: 0px;
-  transition: opacity 240ms var(--fade), transform 320ms var(--settle), filter 260ms var(--fade), --reveal 300ms var(--glide);
+  transition: opacity 240ms var(--fade), transform 320ms var(--settle), --reveal 300ms var(--glide);
 }
 [data-open=y] :is(.glyph, #q, #foldersBtn) { opacity: 1; transform: none; }
 [data-open=y] :is(.glyph, #q) { transition: opacity 220ms 30ms var(--fade), transform 260ms 30ms var(--settle); }
@@ -131,8 +130,7 @@ body[data-searching] .halo { filter: saturate(1.6) brightness(1.15); }
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
-.bloom { inset: 64px 64px calc(64px + var(--reveal)); filter: blur(28px); animation: breathe 2s ease-in-out infinite alternate; }
-@keyframes breathe { from { opacity: .35; } to { opacity: .55; } }
+.bloom { inset: 64px 64px calc(64px + var(--reveal)); filter: blur(28px); opacity: .45; }
 .rim { padding: 1.5px; }
 .edge { position: absolute; inset: 0; filter: blur(6px); opacity: .7; }
 .edge .ring { padding: 5px; }
@@ -171,10 +169,10 @@ body[data-searching] .spin2 { animation-play-state: running; }
   filter: blur(32px) saturate(1.8) var(--backdrop-tone);
   opacity: 0;
 }
-/* The snapshot starts sharp, so it lines up with the real desktop whenever it arrives, then frosts over. */
-body[data-blur=on] .backdrop { opacity: 1; animation: frost 340ms var(--out) both; }
-@keyframes frost { from { opacity: 0; filter: blur(0px) saturate(1) var(--tone-0); } 25% { opacity: 1; } }
-.tint { position: absolute; inset: 0; z-index: -1; background: var(--tint-solid); transition: background-color 200ms var(--out); }
+body[data-blur=on] .backdrop { opacity: 1; transition: opacity 160ms var(--fade); }
+.tint { position: absolute; inset: 0; z-index: -1; background: var(--tint-solid); }
+/* Only once open: the tint switch made while the palette is still invisible should land at once, not shift during the fade-in. */
+body[data-phase=open] .tint { transition: background-color 200ms var(--out); }
 body:is([data-blur=on], [data-blur=wait]) .tint { background: var(--tint-blur); }
 .aurora { position: absolute; inset: 0; z-index: -1; opacity: 0; mix-blend-mode: var(--aurora-blend); transition: opacity 150ms var(--fade); }
 .aurora i { position: absolute; width: 62%; aspect-ratio: 1; border-radius: 50%; }
@@ -271,15 +269,13 @@ body[data-view=folders] .view-folders { transform: none; opacity: 1; filter: non
 .row .title, .row .snippet { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .title { font-size: 14px; font-weight: 600; letter-spacing: -.005em; }
 .row .snippet { font-size: 12.5px; color: var(--text-2); }
-.row.fresh { animation: row-in 200ms var(--out) both; animation-delay: calc(var(--i) * 16ms); }
-@keyframes row-in { from { opacity: 0; transform: translateY(6px); filter: blur(4px); } }
+.row.fresh { animation: row-in 100ms linear both; }
+@keyframes row-in { from { opacity: 0; } }
 mark {
   color: inherit; border-radius: 4px; padding: 0 1px;
   background: var(--mark) left / 100% 100% no-repeat;
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
-.row mark { animation: mark-in 380ms var(--out) both; animation-delay: calc(var(--i, 0) * 22ms + 120ms); }
-@keyframes mark-in { from { background-size: 0% 100%; } }
 
 .detail { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 20px 18px 18px; }
 .detail.vacant > * { visibility: hidden; }
@@ -297,15 +293,8 @@ mark {
   user-select: text; -webkit-user-select: text; cursor: text;
   mask: linear-gradient(transparent, #000 16px, #000 calc(100% - 16px), transparent);
 }
-.pv.in { animation: pv-in 200ms var(--out) both; }
-.pv.out { animation: pv-out 200ms var(--out) both; pointer-events: none; }
-@keyframes pv-in { from { opacity: 0; transform: translateX(10px); filter: blur(3px); } }
-@keyframes pv-out { to { opacity: 0; filter: blur(3px); } }
 .pv.unavailable { display: grid; place-items: center; white-space: normal; color: var(--text-2); cursor: default; }
-.pv mark.hit {
-  background-image: var(--mark-hit);
-  animation: mark-in 300ms 120ms var(--out) both;
-}
+.pv mark.hit { background-image: var(--mark-hit); }
 .pv-note { margin-top: 14px; font-size: 12px; color: var(--text-2); }
 .meta { margin-top: 16px; display: grid; gap: 3px; }
 #name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -520,7 +509,7 @@ const clone = id => $(id).content.firstElementChild.cloneNode(true);
 const state = {
   phase: 'hidden', view: 'search', query: '', queryId: 0, searching: false,
   items: null, selected: -1, elapsedMs: null, warnings: [], preview: null,
-  roots: null, screenRecording: true, blur: 'off', notice: null, resultsFor: null, pendingOpen: false,
+  roots: null, screenRecording: true, blur: 'off', notice: null, resultsFor: null, pendingOpen: false, typedAt: 0,
 };
 const timers = {};
 const later = (name, ms, fn) => { clearTimeout(timers[name]); timers[name] = setTimeout(fn, ms); };
@@ -598,17 +587,13 @@ function around(text, re) {
 
 function renderRows(prevPaths) {
   const re = matcher(state.query);
-  let fresh = 0;
   rowsEl.replaceChildren(...state.items.map((item, i) => {
     const row = clone('tplRow');
     row.id = 'row' + i;
     row.dataset.i = i;
     fill(row.querySelector('.title'), item.title || item.name, re);
     fill(row.querySelector('.snippet'), around(item.snippet || item.dir, re), re);
-    if (i < 10 && !prevPaths.has(item.path)) {
-      row.classList.add('fresh');
-      row.style.setProperty('--i', fresh++);
-    }
+    if (i < 10 && !prevPaths.has(item.path)) row.classList.add('fresh');
     return row;
   }));
 }
@@ -656,16 +641,12 @@ function lineOffset(text, line) {
 }
 
 function renderPreview() {
-  card.querySelectorAll('.pv.out').forEach(el => el.remove());
-  const old = card.querySelector('.pv');
-  if (old) {
-    old.classList.replace('in', 'out');
-    setTimeout(() => old.remove(), calm.matches ? 0 : 220);
-  }
+  // Swap in place: fading text either blanks the card or overlays two files.
+  card.querySelector('.pv')?.remove();
   const p = state.preview;
   if (!p) return;
   const pv = document.createElement('div');
-  pv.className = 'pv in';
+  pv.className = 'pv';
   if (p.error || typeof p.text !== 'string') {
     pv.classList.add('unavailable');
     pv.textContent = p.error || 'Preview unavailable';
@@ -687,10 +668,7 @@ function renderPreview() {
   const hit = (marks.find(m => m.index >= start) || marks[0])?.el;
   if (!hit) return;
   hit.classList.add('hit');
-  const top = hit.offsetTop - (pv.clientHeight - hit.offsetHeight) / 2;
-  if (calm.matches) { pv.scrollTop = top; return; }
-  pv.scrollTop = top - 48;
-  requestAnimationFrame(() => pv.scrollTo({ top, behavior: 'smooth' }));
+  pv.scrollTop = hit.offsetTop - (pv.clientHeight - hit.offsetHeight) / 2;
 }
 
 function renderRoots(prev) {
@@ -715,7 +693,8 @@ function sendQuery(q) {
   state.query = q;
   state.notice = null;
   post({ type: 'query', id: state.queryId, q });
-  later('searching', 80, () => { state.searching = true; render(); });
+  // Most searches finish in about 100 ms; flagging them sooner made the bar blink on every keystroke.
+  later('searching', 300, () => { state.searching = true; render(); });
   render();
 }
 
@@ -795,7 +774,7 @@ const handlers = {
     });
   },
   hide() {
-    cancel('debounce', 'searching', 'copy', 'open', 'frost');
+    cancel('debounce', 'searching', 'copy', 'open', 'frost', 'settle');
     Object.assign(state, { phase: 'closing', searching: false, pendingOpen: false });
     render();
     later('close', 200, () => {
@@ -822,6 +801,13 @@ const handlers = {
   results(msg) {
     if (msg.id !== state.queryId) return;
     cancel('searching');
+    const wait = 350 - (performance.now() - state.typedAt);
+    // A query typed mid-word, often an unfinished Hangul syllable, finds nothing; keep the last results until typing pauses.
+    if (!msg.items?.length && state.items?.length && wait > 0) {
+      state.searching = false;
+      render();
+      return later('settle', wait, () => handlers.results(msg));
+    }
     const prev = new Set((state.items || []).map(item => item.path));
     const keep = state.items?.[state.selected]?.path;
     state.items = Array.isArray(msg.items) ? msg.items : [];
@@ -914,10 +900,11 @@ document.addEventListener('keydown', e => {
 });
 
 input.addEventListener('input', () => {
-  if (!calm.matches) $('bloom').animate([{ opacity: .25 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', composite: 'add' });
   if (state.view === 'folders') setView('search');
-  state.pendingOpen = false;
-  if (input.value.trim()) return later('debounce', 150, () => sendQuery(input.value));
+  Object.assign(state, { pendingOpen: false, typedAt: performance.now() });
+  const q = input.value.trim();
+  // A trailing lone jamo (ㅊ, 최ㅈ) is a syllable still being typed, so wait a little longer before searching it.
+  if (q) return later('debounce', /[\u3131-\u318E]$/.test(q) ? 300 : 150, () => sendQuery(input.value));
   // An empty query folds the panel back into the bar; the bump drops any reply still in flight.
   cancel('debounce', 'searching');
   state.queryId += 1;

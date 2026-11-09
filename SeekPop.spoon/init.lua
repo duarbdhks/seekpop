@@ -38,6 +38,7 @@ local RG_CANDIDATES = { "/opt/homebrew/bin/rg", "/usr/local/bin/rg" }
 local PREVIEW_BYTES = 256 * 1024
 local CLOSE_FALLBACK_SECONDS = 0.3
 local BACKDROP_WIDTH = 640
+local PANEL_HEIGHT = 580
 local SCREEN_RECORDING_PANE = "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
 
 local function savedRoots()
@@ -63,7 +64,7 @@ function enter.shown(self, from)
   self._previousApp = hs.application.frontmostApplication()
   local screen = hs.mouse.getCurrentScreen() or hs.screen.mainScreen()
   local f, full = screen:frame(), screen:fullFrame()
-  local w, h = math.min(860, math.floor(f.w * 0.70)), 580
+  local w, h = math.min(760, math.floor(f.w * 0.70)), PANEL_HEIGHT
   local x, y = f.x + (f.w - w) / 2, f.y + math.floor(f.h * 0.18)
   local snap = { x = x - full.x - 40, y = y - full.y - 40, w = w + 80, h = h + 80 }
   local shot = hs.screenRecordingState() and screen:snapshot(snap) or nil
@@ -258,7 +259,8 @@ function obj:start()
   local uc = hs.webview.usercontent.new("seekpop")
   uc:setCallback(function(message) self:_receive(message.body) end)
   self._uc, self._state, self._ready, self._queue, self._items, self._dark = uc, "hidden", false, {}, {}, nil
-  self._wv = hs.webview.new({ x = 0, y = 0, w = 10, h = 10 }, {}, uc)
+  -- Created at its final height: the page folds by 100vh, and a first-open resize from 10 pt flashed the full panel.
+  self._wv = hs.webview.new({ x = 0, y = 0, w = 10, h = PANEL_HEIGHT + 144 }, {}, uc)
     :windowStyle({ "borderless" })
     :transparent(true)
     :allowTextEntry(true)
