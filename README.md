@@ -3,26 +3,33 @@
 </h1>
 
 <p align="center">
-  Press <kbd>Option</kbd> + <kbd>Space</kbd> to search file contents and names on your Mac. Preview a match, then open or copy the file.
+  <strong>Your hidden files deserve to be found.</strong><br>
+  Press <kbd>Option</kbd> + <kbd>Space</kbd> to search the text inside local files, even in folders like <code>~/.codex/plans</code>.
 </p>
 
 <p align="center">
   <a href="#quick-start"><strong>Quick start</strong></a> · <a href="#see-it-in-action">See it in action</a><br>
-  A macOS utility for Hammerspoon and ripgrep.
+  macOS · Hammerspoon + ripgrep · No index to build
 </p>
 
-## Why SeekPop
+## Why I built SeekPop
 
-You remember writing `retry budget` in a rollout plan, but can't remember the filename. SeekPop searches the folders you choose, including hidden folders like `~/.codex/plans`. It reads the files on disk for each query, so you can find a note as soon as you save it.
+I built SeekPop to search the Markdown plans Codex saves in `~/.codex/plans`. I'd remember a phrase and forget which file held it. I wanted to search those files in place with a shortcut I could use from any app.
+
+- **Search hidden folders**. Choose where to look, including `~/.config`, your Codex plans, or any project notes folder you can read. See [search limits](#search-limits) for ignore rules and file access.
+- **No index to refresh**. ripgrep scans the selected folders on each query, so your next search picks up new and edited Markdown files. Setup needs no AI model.
+- **Preview and copy**. Search by name or by text, read the highlighted match in context, then open the file, copy it, or copy its path from the keyboard.
+
+DigUp was one of the tools I looked at. It indexes documents and media on-device for semantic search and also matches exact text in filenames and documents. [DigUp README](https://github.com/ARahim3/DigUp#readme)
 
 ## See it in action
 
-![Open the SeekPop search bar, find retry budget in a Markdown file, then open or copy the file.](assets/seekpop-workflow.webp)
+![Add ~/.codex/plans in Folders, preview retry budget in a Markdown plan, then open or copy the selected file or its path.](assets/seekpop-workflow.webp)
 
 *The banner and walkthrough use SeekPop's webview rendered in a browser with sample files.*
 
-1. Press <kbd>Option</kbd> + <kbd>Space</kbd> from any app. SeekPop opens as a search bar.
-2. Type `retry budget`. Results unfold beneath the bar. Use <kbd>↑</kbd> and <kbd>↓</kbd> to see each file with its matches highlighted.
+1. Open SeekPop with <kbd>Option</kbd> + <kbd>Space</kbd>. Choose **Folders**, then **Add folder…**. In the picker, use <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> to go to `~/.codex/plans` and select it.
+2. Press <kbd>Esc</kbd> to return to the search bar, then type a phrase from one of your plans. The demo uses `retry budget`. Use <kbd>↑</kbd> and <kbd>↓</kbd> to preview each file with its matches highlighted.
 3. Press <kbd>Return</kbd> to open the selected file, <kbd>Cmd</kbd> + <kbd>C</kbd> to copy the file for pasting in Finder, or <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> to copy its path as text.
 
 ## Quick start
@@ -70,7 +77,7 @@ SeekPop runs as a Hammerspoon Spoon on macOS. You need [Hammerspoon](https://www
 
 ## How it works
 
-Hammerspoon handles the hotkey, window, and macOS file actions. ripgrep scans the folders you choose on each query. SeekPop keeps no search index and runs searches and previews locally.
+Hammerspoon handles the hotkey, window, and macOS file actions. Searches and previews run locally.
 
 All query terms must appear in the file's contents or all must appear in its name. Matching is case-insensitive, and terms in the contents can appear on different lines. Results are sorted by most recently modified, with up to 50 shown by default. A Markdown heading near the top of a file becomes its result title when available. Each result can show a matching line, and its preview highlights matching text.
 
@@ -89,7 +96,11 @@ Set these fields on `spoon.SeekPop` after `hs.loadSpoon` and before `start()`.
 
 **Appearance and privacy.** The palette follows macOS light or dark mode and Reduce Motion. It uses tinted glass by default when Hammerspoon lacks Screen Recording permission. To enable desktop blur, choose **Turn on** in the folder list or allow Hammerspoon in **System Settings → Privacy & Security → Screen & System Audio Recording**. SeekPop captures a still of the area behind the palette when it opens and keeps it in memory. It never writes that image to disk.
 
-**Search limits.** ripgrep follows ignore rules such as `.gitignore`. Content search skips binary files and files above the size limit. Their names can still match. Previews show up to 256 KB of UTF-8 text. Searching inside PDFs is on the roadmap.
+### Search limits
+
+ripgrep honors applicable ignore rules such as `.gitignore` and the `exclude` list above, including inside hidden folders. Hammerspoon needs read access to the folders and files you want to search.
+
+Content search skips binary files and files above the size limit. Their names can still match. Previews show up to 256 KB of UTF-8 text. Searching inside PDFs is on the roadmap.
 
 <details>
 <summary>Optional launcher and startup at login</summary>
