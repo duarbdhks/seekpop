@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta name="color-scheme" content="dark light">
+<title>SeekPop</title>
+<style>
+@property --sweep { syntax: '<angle>'; inherits: false; initial-value: 400deg; }
+
+:root {
+  --spring: cubic-bezier(.34, 1.36, .64, 1);
+  --out: cubic-bezier(.22, 1, .36, 1);
+  --iris: #FF9F43, #FF4FA3, #A45CFF, #4F7BFF, #22D3EE;
+  --tint-blur: rgba(30, 27, 44, .52);
+  --tint-solid: rgba(24, 22, 36, .90);
+  --text: #F5F5F7;
+  --text-2: rgba(235, 235, 245, .62);
+  --hairline: rgba(255, 255, 255, .10);
+  --specular: rgba(255, 255, 255, .22);
+  --raised: rgba(255, 255, 255, .075);
+  --raised-edge: rgba(255, 255, 255, .11);
+  --drop: rgba(0, 0, 0, .45);
+  --backdrop-tone: brightness(.55);
+  --mark: linear-gradient(90deg, rgba(255, 79, 163, .36), rgba(164, 92, 255, .36));
+  --warn: #FFB547;
+  --danger: #FF7A85;
+  --aurora: .24;
+  --aurora-blend: screen;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --tint-blur: rgba(250, 249, 255, .55);
+    --tint-solid: rgba(246, 245, 252, .92);
+    --text: #1D1D1F;
+    --text-2: rgba(60, 60, 67, .64);
+    --hairline: rgba(0, 0, 0, .08);
+    --specular: rgba(255, 255, 255, .75);
+    --raised: rgba(255, 255, 255, .55);
+    --raised-edge: rgba(0, 0, 0, .06);
+    --drop: rgba(40, 30, 80, .22);
+    --backdrop-tone: contrast(.55) brightness(1.45);
+    --mark: linear-gradient(90deg, rgba(255, 79, 163, .30), rgba(164, 92, 255, .30));
+    --warn: #B25E00;
+    --danger: #D70015;
+    --aurora: .12;
+    --aurora-blend: soft-light;
+  }
+}
+
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+body {
+  box-sizing: border-box;
+  padding: 72px;
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+button { font: inherit; color: inherit; }
+::-webkit-scrollbar { width: 11px; }
+::-webkit-scrollbar-thumb { border: 4px solid transparent; border-radius: 8px; background: var(--raised-edge) padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--text-2); }
+
+#stage { position: relative; width: 100%; height: 100%; }
+#stage::before { content: ""; position: absolute; inset: 0; border-radius: 26px; box-shadow: 0 20px 50px var(--drop); }
+body[data-phase=hidden] #stage { visibility: hidden; }
+body[data-phase=opening] #stage { animation: stage-in 320ms var(--spring) both; }
+body[data-phase=closing] #stage { animation: stage-out 180ms var(--out) both; }
+@keyframes stage-in { from { opacity: 0; transform: translateY(8px) scale(.94); filter: blur(10px); } }
+@keyframes stage-out { to { opacity: 0; transform: scale(.97); filter: blur(6px); } }
+
+/* Rim light: one rotating conic gradient, drawn as a blurred bloom below the glass, a soft edge light and a 1.5px ring above it. */
+.halo { position: absolute; inset: -72px; pointer-events: none; transition: filter 300ms var(--out); }
+body[data-phase=opening] .halo {
+  mask: conic-gradient(#000 calc(var(--sweep) - 50deg), transparent var(--sweep));
+  animation: ignite 600ms var(--out) both;
+}
+@keyframes ignite { from { --sweep: 0deg; } to { --sweep: 400deg; } }
+body[data-searching] .halo { filter: saturate(1.6) brightness(1.15); }
+.ring { position: absolute; inset: 72px; border-radius: 26px; overflow: hidden; container-type: size; }
+.cut {
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.bloom { inset: 64px; filter: blur(28px); animation: breathe 2s ease-in-out infinite alternate; }
+@keyframes breathe { from { opacity: .35; } to { opacity: .55; } }
+.rim { padding: 1.5px; }
+.edge { position: absolute; inset: 0; filter: blur(6px); opacity: .7; }
+.edge .ring { padding: 5px; }
+.spin {
+  --d: hypot(100cqw, 100cqh);
+  position: absolute; left: 50%; top: 50%;
+  width: var(--d); height: var(--d); margin: calc(var(--d) / -2);
+  animation: turn 14s linear infinite;
+}
+.spin2 {
+  position: absolute; inset: 0;
+  background: conic-gradient(var(--iris), #FF9F43);
+  /* Adds to the parent's 14s turn, so while searching the rim runs one turn per 2.4s without jumping. */
+  animation: turn 2.9s linear infinite paused;
+}
+body[data-searching] .spin2 { animation-play-state: running; }
+@keyframes turn { to { transform: rotate(1turn); } }
+
+#panel {
+  position: absolute; inset: 0;
+  border-radius: 26px;
+  overflow: hidden;
+  /* WebKit lets filtered children escape a rounded overflow clip; clip-path keeps the corners round. */
+  clip-path: inset(0 round 26px);
+  isolation: isolate;
+  display: flex; flex-direction: column;
+}
+#panel::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 1px 0 var(--specular), inset 0 0 0 1px var(--hairline);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .06), transparent 120px);
+}
+.backdrop {
+  position: absolute; inset: -40px; z-index: -1;
+  background: center / 100% 100% no-repeat;
+  filter: blur(32px) saturate(1.8) var(--backdrop-tone);
+  opacity: 0;
+}
+body[data-blur=on] .backdrop { opacity: 1; transition: opacity 200ms var(--out); }
+.tint { position: absolute; inset: 0; z-index: -1; background: var(--tint-solid); }
+body[data-blur=on] .tint { background: var(--tint-blur); transition: background-color 200ms var(--out); }
+.aurora { position: absolute; inset: 0; z-index: -1; opacity: var(--aurora); mix-blend-mode: var(--aurora-blend); }
+.aurora i { position: absolute; width: 62%; aspect-ratio: 1; border-radius: 50%; }
+.aurora i:nth-child(1) { left: -14%; top: -48%; background: radial-gradient(closest-side, #FF4FA3, transparent); animation: drift-a 20s ease-in-out infinite alternate; }
+.aurora i:nth-child(2) { right: -18%; top: -30%; background: radial-gradient(closest-side, #A45CFF, transparent); animation: drift-b 26s ease-in-out infinite alternate; }
+.aurora i:nth-child(3) { left: 22%; bottom: -62%; background: radial-gradient(closest-side, #22D3EE, transparent); animation: drift-c 32s ease-in-out infinite alternate; }
+@keyframes drift-a { to { transform: translate(22%, 26%) scale(1.15); } }
+@keyframes drift-b { to { transform: translate(-26%, 18%) scale(.9); } }
+@keyframes drift-c { to { transform: translate(18%, -20%) scale(1.1); } }
+
+header {
+  flex: none; height: 68px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 18px 0 24px;
+  border-bottom: 1px solid var(--hairline);
+}
+.glyph { position: relative; flex: none; width: 24px; height: 24px; }
+.glyph svg { position: absolute; inset: 0; width: 24px; height: 24px; overflow: visible; transition: opacity 200ms var(--out), transform 320ms var(--spring); }
+.lens { fill: none; stroke: var(--text-2); stroke-width: 2.2; stroke-linecap: round; }
+.spark { opacity: 0; transform: scale(.3) rotate(-90deg); }
+.spark path { fill: url(#iri); transform-origin: 12px 12px; animation: turn 1.1s linear infinite paused; }
+body[data-searching] .lens { opacity: 0; transform: scale(.4) rotate(45deg); }
+body[data-searching] .spark { opacity: 1; transform: none; }
+body[data-searching] .spark path { animation-play-state: running; }
+#q {
+  flex: 1; min-width: 0;
+  font-family: inherit; font-size: 24px; font-weight: 500; line-height: 1.2; letter-spacing: -.01em;
+  color: var(--text); caret-color: #C86BFF;
+  background: none; border: 0; outline: 0; padding: 0;
+  user-select: text; -webkit-user-select: text;
+}
+#q::placeholder { color: var(--text-2); }
+#q::selection { background: rgba(164, 92, 255, .42); }
+.capsule {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 30px; padding: 0 6px 0 13px; border: 0; border-radius: 999px;
+  font-size: 12.5px; font-weight: 500; color: var(--text-2);
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--raised-edge), inset 0 1px 0 var(--specular);
+  transition: color 160ms, background-color 160ms;
+}
+.capsule:hover, .capsule[aria-pressed=true] { color: var(--text); }
+
+kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box;
+  border-radius: 6px;
+  font: 600 11px/1 ui-rounded, -apple-system, sans-serif;
+  color: var(--text);
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--raised-edge), inset 0 1px 0 var(--specular), 0 1px 1px rgba(0, 0, 0, .18);
+}
+
+.views { position: relative; flex: 1; min-height: 0; }
+.view { position: absolute; inset: 0; transition: transform 260ms var(--out), opacity 260ms var(--out), filter 260ms var(--out), visibility 0s; }
+.view-folders, body[data-view=folders] .view-search {
+  transform: translateX(48px); opacity: 0; filter: blur(6px); visibility: hidden;
+  transition-delay: 0s, 0s, 0s, 260ms;
+}
+body[data-view=folders] .view-search { transform: translateX(-48px); }
+body[data-view=folders] .view-folders { transform: none; opacity: 1; filter: none; visibility: visible; transition-delay: 0s; }
+
+.split { position: absolute; inset: 0; display: flex; }
+.view-search:not([data-content=results]) .split { display: none; }
+.results { width: 42%; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--hairline); }
+.list-head { padding: 14px 24px 8px; font-size: 12px; font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.list { position: relative; flex: 1; overflow-y: auto; padding: 0 10px 12px; mask: linear-gradient(#000 calc(100% - 28px), transparent); }
+.pill {
+  position: absolute; left: 10px; right: 10px; top: 0; height: 56px;
+  border-radius: 14px; overflow: hidden;
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--raised-edge), inset 0 1px 0 var(--specular), 0 8px 24px rgba(0, 0, 0, .16);
+  opacity: 0;
+  transition: transform 260ms var(--spring), opacity 160ms;
+}
+.pill.on { opacity: 1; }
+.pill .spec {
+  position: absolute; inset: 0; opacity: 0; transition: opacity 200ms;
+  background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, .16), transparent 70%);
+}
+.list:hover .pill .spec { opacity: 1; }
+.pill .sheen {
+  position: absolute; inset: 0; opacity: 0; transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 10%, rgba(255, 159, 67, .35), rgba(255, 79, 163, .45), rgba(164, 92, 255, .45), rgba(34, 211, 238, .35), transparent 90%);
+}
+.row {
+  position: relative; z-index: 1;
+  height: 56px; box-sizing: border-box; padding: 0 14px;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  border-radius: 14px;
+}
+.row .title, .row .snippet { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .title { font-size: 14px; font-weight: 600; letter-spacing: -.005em; }
+.row .snippet { font-size: 12.5px; color: var(--text-2); }
+.row.fresh { animation: row-in 260ms var(--out) both; animation-delay: calc(var(--i) * 22ms); }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); filter: blur(4px); } }
+mark {
+  color: inherit; border-radius: 4px; padding: 0 1px;
+  background: var(--mark) left / 100% 100% no-repeat;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.row mark { animation: mark-in 380ms var(--out) both; animation-delay: calc(var(--i, 0) * 22ms + 120ms); }
+@keyframes mark-in { from { background-size: 0% 100%; } }
+
+.detail { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 20px 18px 18px; }
+.detail.vacant > * { visibility: hidden; }
+.card {
+  position: relative; flex: 1; min-height: 0;
+  border-radius: 18px; overflow: hidden;
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--raised-edge), inset 0 1px 0 var(--specular);
+}
+.pv {
+  position: absolute; inset: 0; overflow-y: auto;
+  padding: 18px 22px;
+  font-size: 13.5px; line-height: 1.7;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  user-select: text; -webkit-user-select: text; cursor: text;
+  mask: linear-gradient(transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+.pv.in { animation: pv-in 200ms var(--out) both; }
+.pv.out { animation: pv-out 200ms var(--out) both; pointer-events: none; }
+@keyframes pv-in { from { opacity: 0; transform: translateX(10px); filter: blur(3px); } }
+@keyframes pv-out { to { opacity: 0; filter: blur(3px); } }
+.pv.unavailable { display: grid; place-items: center; white-space: normal; color: var(--text-2); cursor: default; }
+.pv mark.hit {
+  background-image: linear-gradient(90deg, rgba(255, 79, 163, .62), rgba(164, 92, 255, .62));
+  animation: mark-in 300ms 120ms var(--out) both;
+}
+.pv-note { margin-top: 14px; font-size: 12px; color: var(--text-2); }
+.meta { margin-top: 16px; display: grid; gap: 3px; }
+#name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.path { display: flex; min-width: 0; font-size: 12px; color: var(--text-2); }
+#pathHead { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pathTail { flex: none; white-space: nowrap; }
+.chips { display: flex; gap: 6px; margin-top: 7px; }
+.chip {
+  font-size: 11.5px; line-height: 22px; padding: 0 9px; border-radius: 999px;
+  color: var(--text-2); background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--raised-edge);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.chip.warn { color: var(--warn); }
+.actions { display: flex; gap: 8px; margin-top: 14px; }
+.btn {
+  height: 30px; padding: 0 15px; border: 0; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600;
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--raised-edge), inset 0 1px 0 var(--specular);
+  transition: transform 120ms var(--out), filter 160ms;
+}
+.btn:hover { filter: brightness(1.12); }
+.btn:active { transform: scale(.97); }
+.btn.primary {
+  color: #fff; text-shadow: 0 1px 2px rgba(60, 0, 80, .35);
+  background: linear-gradient(115deg, #FF9F43, #FF4FA3 30%, #A45CFF 62%, #4F7BFF 88%, #22D3EE);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 4px 12px rgba(0, 0, 0, .22);
+}
+.btn:focus-visible, .capsule:focus-visible, .icon-btn:focus-visible { outline: 2px solid #A45CFF; outline-offset: 2px; }
+
+.empty { position: absolute; inset: 0; display: none; place-content: center; justify-items: center; gap: 14px; text-align: center; }
+.view-search:not([data-content=results]) .empty { display: grid; }
+.orb {
+  width: 150px; height: 150px; border-radius: 50%; margin-bottom: 4px;
+  background: radial-gradient(circle at 36% 34%, rgba(255, 79, 163, .75), rgba(164, 92, 255, .5) 42%, rgba(34, 211, 238, .25) 66%, transparent 70%);
+  filter: blur(14px);
+  animation: orb 7s ease-in-out infinite alternate;
+}
+@keyframes orb { from { transform: translate(-14px, 6px) scale(.94); } to { transform: translate(14px, -8px) scale(1.06); } }
+#emptyText { margin: 0; font-size: 15px; font-weight: 500; color: var(--text-2); max-width: 520px; overflow-wrap: anywhere; animation: fade-up 360ms 80ms var(--out) both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } }
+
+.view-folders { box-sizing: border-box; padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.folders-head { display: flex; align-items: center; justify-content: space-between; }
+.folders-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+#roots { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.root {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  height: 48px; padding: 0 8px 0 14px; border-radius: 14px;
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--raised-edge), inset 0 1px 0 var(--specular);
+}
+.root > svg { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--text-2); stroke-width: 1.7; stroke-linejoin: round; }
+.root-path { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.root.missing .root-path { color: var(--text-2); }
+.root.added { animation: root-in 260ms var(--spring) both; }
+.root.added::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 159, 67, .22), rgba(255, 79, 163, .22), rgba(164, 92, 255, .22), rgba(34, 211, 238, .22));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45);
+  opacity: 0; animation: glow 1200ms var(--out);
+}
+@keyframes root-in { from { opacity: 0; transform: scale(.96); } }
+@keyframes glow { 15% { opacity: 1; } }
+.root.removing { animation: root-out 220ms var(--out) forwards; pointer-events: none; }
+@keyframes root-out { to { opacity: 0; transform: scale(.96); filter: blur(4px); } }
+.icon-btn {
+  flex: none; width: 30px; height: 30px; border: 0; border-radius: 999px; background: none;
+  display: grid; place-items: center; color: var(--text-2);
+}
+.icon-btn:hover { background: var(--raised); color: var(--text); }
+.icon-btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.hint { margin: 2px 2px 0; font-size: 12px; color: var(--text-2); }
+.note {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin-top: auto; padding: 12px 12px 12px 16px; border-radius: 14px;
+  background: var(--raised); box-shadow: inset 0 0 0 1px var(--raised-edge);
+}
+.note p { margin: 0; font-size: 12.5px; color: var(--text-2); }
+
+footer {
+  flex: none; height: 44px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 0 16px 0 24px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums;
+}
+.status { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; }
+#status, #warn { overflow: hidden; text-overflow: ellipsis; }
+#warn { color: var(--warn); }
+footer[data-tone=error] #status { color: var(--danger); }
+body[data-searching] footer:not([data-tone=error]) #status { animation: shimmer 1.1s ease-in-out infinite alternate; }
+@keyframes shimmer { from { opacity: .45; } }
+.toast {
+  position: absolute; left: -6px; top: 50%; margin-top: -13px;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 12px 0 8px; border-radius: 999px;
+  font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(60, 0, 80, .3);
+  background: linear-gradient(115deg, #FF9F43, #FF4FA3 30%, #A45CFF 62%, #4F7BFF 88%, #22D3EE);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .4);
+  opacity: 0; transform: scale(.6);
+}
+.toast svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.toast path { stroke-dasharray: 22; stroke-dashoffset: 22; }
+footer[data-toast] .toast { animation: pop 380ms var(--spring) both; }
+footer[data-toast] .toast path { animation: draw 320ms 140ms var(--out) forwards; }
+footer[data-toast] #status, footer[data-toast] #warn { opacity: 0; }
+@keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+#hints { display: flex; gap: 14px; flex: none; }
+#hints span { display: inline-flex; align-items: center; gap: 6px; }
+
+body[data-phase=hidden] *, body[data-phase=hidden] *::before, body[data-phase=hidden] *::after { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  body[data-phase=opening] #stage { animation: fade-in 120ms both !important; }
+  body[data-phase=closing] #stage { animation: fade-out 120ms both !important; }
+  body[data-blur=on] .backdrop { transition: opacity 120ms !important; }
+  footer[data-toast] .toast { animation: fade-in 120ms both !important; }
+  footer[data-toast] .toast path { stroke-dashoffset: 0; }
+  .view-folders, body[data-view=folders] .view-search { transform: none; filter: none; }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; transform: none; } }
+@keyframes fade-out { to { opacity: 0; } }
+</style>
+</head>
+<body data-phase="hidden" data-view="search" data-blur="off">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="iri" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF9F43"/><stop offset=".3" stop-color="#FF4FA3"/><stop offset=".6" stop-color="#A45CFF"/><stop offset=".85" stop-color="#4F7BFF"/><stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+</svg>
+<div id="stage">
+  <div class="halo" aria-hidden="true"><div class="ring bloom" id="bloom"><div class="spin"><div class="spin2"></div></div></div></div>
+  <main id="panel">
+    <div class="backdrop" id="backdrop"></div>
+    <div class="tint"></div>
+    <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+    <header>
+      <div class="glyph" aria-hidden="true">
+        <svg class="lens" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.4 15.4 20 20"/></svg>
+        <svg class="spark" viewBox="0 0 24 24"><path d="M12 2.5c.9 5.2 4.3 8.6 9.5 9.5-5.2.9-8.6 4.3-9.5 9.5-.9-5.2-4.3-8.6-9.5-9.5 5.2-.9 8.6-4.3 9.5-9.5z"/></svg>
+      </div>
+      <input id="q" type="text" placeholder="Search your files" aria-label="Search your files" aria-controls="rows" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button class="capsule" id="foldersBtn" data-action="folders" aria-pressed="false">Folders <kbd>⌘,</kbd></button>
+    </header>
+    <div class="views">
+      <section class="view view-search" id="search" data-content="results">
+        <div class="split">
+          <div class="results">
+            <div class="list-head" id="count"></div>
+            <div class="list" id="list">
+              <div class="pill" id="pill"><span class="spec"></span><span class="sheen" id="sheen"></span></div>
+              <div id="rows" role="listbox" aria-label="Results"></div>
+            </div>
+          </div>
+          <div class="detail vacant" id="detail">
+            <div class="card" id="card"></div>
+            <div class="meta">
+              <div id="name"></div>
+              <div class="path" id="path"><span id="pathHead"></span><span id="pathTail"></span></div>
+              <div class="chips"><span class="chip" id="modified"></span><span class="chip" id="size"></span></div>
+            </div>
+            <div class="actions">
+              <button class="btn primary" data-action="open">Open</button>
+              <button class="btn" data-action="reveal">Show in Finder</button>
+              <button class="btn" data-action="copy">Copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="empty">
+          <div class="orb" aria-hidden="true"></div>
+          <p id="emptyText"></p>
+          <button class="btn primary" id="emptyAdd" data-action="addFolder" hidden>Add folder</button>
+        </div>
+      </section>
+      <section class="view view-folders" aria-label="Folders">
+        <div class="folders-head"><h2>Folders</h2><button class="btn" data-action="addFolder">Add folder…</button></div>
+        <ul id="roots"></ul>
+        <p class="hint">In the picker, press ⌘⇧. to show hidden folders or ⌘⇧G to type a path.</p>
+        <div class="note" id="blurNote" hidden><p>Turn on Screen Recording to blur the desktop behind SeekPop.</p><button class="btn" data-action="enableBlur">Turn on</button></div>
+      </section>
+    </div>
+    <footer id="foot">
+      <div class="status">
+        <span id="status" role="status"></span><span id="warn"></span>
+        <span class="toast" id="toast" aria-live="polite"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span id="toastText"></span></span>
+      </div>
+      <div id="hints"></div>
+    </footer>
+  </main>
+  <div class="halo" aria-hidden="true">
+    <div class="edge"><div class="ring cut"><div class="spin"><div class="spin2"></div></div></div></div>
+    <div class="ring cut rim"><div class="spin"><div class="spin2"></div></div></div>
+  </div>
+</div>
+<template id="tplRow"><div class="row" role="option" aria-selected="false"><div class="title"></div><div class="snippet"></div></div></template>
+<template id="tplRoot"><li class="root"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h3.7l2 2h7.3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span class="root-path"></span><span class="chip warn" hidden>Not found</span><button class="icon-btn" aria-label="Remove folder" title="Remove"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg></button></li></template>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const body = document.body, input = $('q'), list = $('list'), rowsEl = $('rows'), pill = $('pill'), card = $('card');
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+const post = msg => window.webkit?.messageHandlers?.seekpop?.postMessage(msg);
+const clone = id => $(id).content.firstElementChild.cloneNode(true);
+
+const state = {
+  phase: 'hidden', view: 'search', query: '', queryId: 0, searching: false,
+  items: null, selected: -1, elapsedMs: null, warnings: [], preview: null,
+  roots: null, screenRecording: true, blur: false, notice: null,
+};
+const timers = {};
+const later = (name, ms, fn) => { clearTimeout(timers[name]); timers[name] = setTimeout(fn, ms); };
+const cancel = (...names) => names.forEach(n => clearTimeout(timers[n]));
+
+const hints = {
+  search: [['↩', 'Open'], ['⌘↩', 'Reveal'], ['⌘C', 'Copy'], ['esc', 'Close']],
+  empty: [['⌘,', 'Folders'], ['esc', 'Close']],
+  folders: [['esc', 'Back']],
+};
+
+function render() {
+  Object.assign(body.dataset, { phase: state.phase, view: state.view, blur: state.blur ? 'on' : 'off' });
+  body.toggleAttribute('data-searching', state.searching);
+  const q = state.query.trim(), n = state.items?.length ?? 0;
+  const noun = (q ? ['result', 'results'] : ['file', 'files'])[n === 1 ? 0 : 1];
+  const roots = state.roots?.length ?? 0;
+  $('count').textContent = q ? n + ' ' + noun : 'Recent files';
+  $('status').textContent = state.notice ?? (state.view === 'folders' ? roots + (roots === 1 ? ' folder' : ' folders')
+    : state.searching ? 'Searching…'
+    : state.items && roots ? n + ' ' + noun + (state.elapsedMs != null ? ' in ' + Math.round(state.elapsedMs) + ' ms' : '') : '');
+  $('foot').dataset.tone = state.notice ? 'error' : '';
+  if (state.notice) delete $('foot').dataset.toast;
+  const w = state.warnings;
+  $('warn').textContent = w.length ? w[0] + (w.length > 1 ? ' and ' + (w.length - 1) + ' more' : '') : '';
+  const content = state.roots?.length === 0 ? 'noroots' : state.items?.length === 0 ? 'noresults' : 'results';
+  $('search').dataset.content = content;
+  $('emptyText').textContent = content === 'noroots' ? 'Add a folder to start searching'
+    : q ? 'No files contain “' + q + '”' : 'No files in your folders';
+  $('emptyAdd').hidden = content !== 'noroots';
+  $('foldersBtn').setAttribute('aria-pressed', state.view === 'folders');
+  $('blurNote').hidden = state.screenRecording;
+  $('hints').replaceChildren(...hints[state.view === 'folders' ? 'folders' : content === 'results' ? 'search' : 'empty'].map(([key, label]) => {
+    const span = document.createElement('span'), kbd = document.createElement('kbd');
+    kbd.textContent = key;
+    span.append(kbd, label);
+    return span;
+  }));
+}
+
+function matcher(q) {
+  const terms = [...new Set(q.toLowerCase().split(/\s+/).filter(Boolean))].sort((a, b) => b.length - a.length);
+  return terms.length ? new RegExp(terms.map(t => t.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&')).join('|'), 'gi') : null;
+}
+
+// File-derived text only ever becomes text nodes; matches are wrapped in <mark> elements.
+function fill(el, text, re, limit = Infinity) {
+  const frag = document.createDocumentFragment(), marks = [];
+  let last = 0, m;
+  if (re) {
+    re.lastIndex = 0;
+    while (marks.length < limit && (m = re.exec(text))) {
+      const mark = document.createElement('mark');
+      mark.textContent = m[0];
+      frag.append(text.slice(last, m.index), mark);
+      marks.push({ index: m.index, el: mark });
+      last = m.index + m[0].length;
+    }
+  }
+  frag.append(text.slice(last));
+  el.replaceChildren(frag);
+  return marks;
+}
+
+function around(text, re) {
+  if (!re) return text;
+  re.lastIndex = 0;
+  const m = re.exec(text);
+  return m && m.index > 28 ? '…' + text.slice(m.index - 24) : text;
+}
+
+function renderRows(prevPaths) {
+  const re = matcher(state.query);
+  let fresh = 0;
+  rowsEl.replaceChildren(...state.items.map((item, i) => {
+    const row = clone('tplRow');
+    row.id = 'row' + i;
+    row.dataset.i = i;
+    fill(row.querySelector('.title'), item.title || item.name, re);
+    fill(row.querySelector('.snippet'), around(item.snippet || item.dir, re), re);
+    if (i < 10 && !prevPaths.has(item.path)) {
+      row.classList.add('fresh');
+      row.style.setProperty('--i', fresh++);
+    }
+    return row;
+  }));
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' bytes';
+  if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function renderMeta(item) {
+  $('detail').classList.toggle('vacant', !item);
+  if (!item) return;
+  $('name').textContent = item.name;
+  $('pathHead').textContent = item.dir;
+  $('pathTail').textContent = '/' + item.name;
+  $('path').title = item.dir + '/' + item.name;
+  $('modified').textContent = 'Modified ' + new Date(item.mtime * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  $('size').textContent = formatSize(item.size);
+}
+
+function renderSelection() {
+  const row = rowsEl.children[state.selected];
+  rowsEl.querySelector('[aria-selected="true"]')?.setAttribute('aria-selected', 'false');
+  pill.classList.toggle('on', !!row);
+  if (row) {
+    row.setAttribute('aria-selected', 'true');
+    pill.style.transform = 'translateY(' + row.offsetTop + 'px)';
+    row.scrollIntoView({ block: 'nearest' });
+    input.setAttribute('aria-activedescendant', row.id);
+  } else {
+    input.removeAttribute('aria-activedescendant');
+  }
+  renderMeta(state.items?.[state.selected]);
+}
+
+function lineOffset(text, line) {
+  let offset = 0;
+  for (let n = 1; n < line; n++) {
+    const nl = text.indexOf('\n', offset);
+    if (nl < 0) break;
+    offset = nl + 1;
+  }
+  return offset;
+}
+
+function renderPreview() {
+  card.querySelectorAll('.pv.out').forEach(el => el.remove());
+  const old = card.querySelector('.pv');
+  if (old) {
+    old.classList.replace('in', 'out');
+    setTimeout(() => old.remove(), calm.matches ? 0 : 220);
+  }
+  const p = state.preview;
+  if (!p) return;
+  const pv = document.createElement('div');
+  pv.className = 'pv in';
+  if (p.error || typeof p.text !== 'string') {
+    pv.classList.add('unavailable');
+    pv.textContent = p.error || 'Preview unavailable';
+    card.append(pv);
+    return;
+  }
+  const text = document.createElement('div');
+  // shortcut: highlights stop after 500 matches, raise if long previews need every match lit
+  const marks = fill(text, p.text, matcher(state.query), 500);
+  pv.append(text);
+  if (p.truncated) {
+    const note = document.createElement('div');
+    note.className = 'pv-note';
+    note.textContent = 'Showing the first 256 KB';
+    pv.append(note);
+  }
+  card.append(pv);
+  const start = lineOffset(p.text, p.line || 1);
+  const hit = (marks.find(m => m.index >= start) || marks[0])?.el;
+  if (!hit) return;
+  hit.classList.add('hit');
+  const top = hit.offsetTop - (pv.clientHeight - hit.offsetHeight) / 2;
+  if (calm.matches) { pv.scrollTop = top; return; }
+  pv.scrollTop = top - 48;
+  requestAnimationFrame(() => pv.scrollTo({ top, behavior: 'smooth' }));
+}
+
+function renderRoots(prev) {
+  const known = new Set((prev || []).map(r => r.path));
+  $('roots').replaceChildren(...state.roots.map(root => {
+    const li = clone('tplRoot');
+    li.querySelector('.root-path').textContent = root.display || root.path;
+    li.querySelector('.chip').hidden = !root.missing;
+    li.classList.toggle('missing', !!root.missing);
+    li.classList.toggle('added', !!prev && !known.has(root.path));
+    li.querySelector('button').addEventListener('click', () => {
+      li.classList.add('removing');
+      setTimeout(() => post({ type: 'removeFolder', path: root.path }), calm.matches ? 0 : 220);
+    });
+    return li;
+  }));
+}
+
+function sendQuery(q) {
+  cancel('debounce');
+  state.queryId += 1;
+  state.query = q;
+  state.notice = null;
+  post({ type: 'query', id: state.queryId, q });
+  later('searching', 80, () => { state.searching = true; render(); });
+  render();
+}
+
+function select(i, force) {
+  if (i === state.selected && !force) return;
+  state.selected = i;
+  renderSelection();
+  const item = state.items?.[i];
+  if (item) {
+    post({ type: 'select', path: item.path });
+  } else {
+    state.preview = null;
+    renderPreview();
+  }
+}
+
+function move(delta) {
+  const n = state.items?.length ?? 0;
+  if (n) select(Math.max(0, Math.min(n - 1, state.selected + delta)));
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
+function act(type) {
+  const item = state.items?.[state.selected];
+  if (!item) return false;
+  if (!calm.matches) {
+    if (type === 'copy' || type === 'copyPath') {
+      $('sheen').animate([{ opacity: 0, transform: 'translateX(-100%)' }, { opacity: 1, offset: .25 }, { opacity: 0, transform: 'translateX(100%)' }], { duration: 560, easing: 'cubic-bezier(.22,1,.36,1)' });
+    } else {
+      pill.animate([{ scale: '.97' }, { scale: '1' }], { duration: 120, easing: 'ease-out' });
+    }
+  }
+  post({ type, path: item.path });
+}
+
+function setView(view) {
+  state.view = view;
+  render();
+  if (view === 'search') input.focus();
+}
+
+function copied(text) {
+  $('toastText').textContent = text;
+  const foot = $('foot');
+  delete foot.dataset.toast;
+  void foot.offsetWidth;
+  foot.dataset.toast = '';
+  later('copy', 520, () => post({ type: 'close' }));
+}
+
+const close = () => post({ type: 'close' });
+const confirmations = { open: close, reveal: close, copy: () => copied('Copied'), copyPath: () => copied('Path copied') };
+
+const handlers = {
+  show() {
+    cancel('close', 'copy');
+    delete $('foot').dataset.toast;
+    Object.assign(state, { phase: 'opening', view: 'search', notice: null });
+    render();
+    input.focus();
+    input.select();
+    sendQuery(input.value);
+    later('open', 600, () => {
+      if (state.phase !== 'opening') return;
+      state.phase = 'open';
+      render();
+    });
+  },
+  hide() {
+    cancel('debounce', 'searching', 'copy', 'open');
+    Object.assign(state, { phase: 'closing', searching: false });
+    render();
+    later('close', 180, () => {
+      Object.assign(state, { phase: 'hidden', blur: false });
+      $('backdrop').style.backgroundImage = '';
+      render();
+      post({ type: 'closed' });
+    });
+  },
+  backdrop(msg) {
+    if (!/^data:image\//.test(msg.url || '')) return;
+    const img = new Image();
+    img.src = msg.url;
+    img.decode().then(() => {
+      $('backdrop').style.backgroundImage = 'url(' + JSON.stringify(msg.url) + ')';
+      state.blur = true;
+      render();
+    }, () => {});
+  },
+  results(msg) {
+    if (msg.id !== state.queryId) return;
+    cancel('searching');
+    const prev = new Set((state.items || []).map(item => item.path));
+    const keep = state.items?.[state.selected]?.path;
+    state.items = Array.isArray(msg.items) ? msg.items : [];
+    Object.assign(state, { searching: false, elapsedMs: msg.elapsedMs, warnings: msg.warnings || [] });
+    const i = state.items.findIndex(item => item.path === keep);
+    state.selected = i >= 0 ? i : state.items.length ? 0 : -1;
+    renderRows(prev);
+    render();
+    select(state.selected, true);
+  },
+  preview(msg) {
+    if (msg.path !== state.items?.[state.selected]?.path) return;
+    state.preview = msg;
+    renderPreview();
+  },
+  folders(msg) {
+    const prev = state.roots;
+    state.roots = Array.isArray(msg.roots) ? msg.roots : [];
+    state.screenRecording = msg.screenRecording !== false;
+    renderRoots(prev);
+    render();
+    const paths = roots => roots.map(r => r.path).join('\n');
+    if (prev && paths(prev) !== paths(state.roots) && (state.phase === 'open' || state.phase === 'opening')) sendQuery(input.value);
+  },
+  done(msg) {
+    if (!msg.ok) {
+      state.notice = msg.message || 'Action failed';
+      render();
+      return;
+    }
+    if (Object.hasOwn(confirmations, msg.action)) confirmations[msg.action]();
+  },
+  error(msg) {
+    cancel('searching');
+    Object.assign(state, { searching: false, notice: msg.message || 'Search failed' });
+    render();
+  },
+};
+
+window.SeekPop = { receive: msg => msg && Object.hasOwn(handlers, msg.type) && handlers[msg.type](msg) };
+
+const keymaps = {
+  search: {
+    ArrowDown: () => move(1), 'Ctrl+n': () => move(1),
+    ArrowUp: () => move(-1), 'Ctrl+p': () => move(-1),
+    Enter: () => act('open'),
+    'Cmd+Enter': () => act('reveal'),
+    'Cmd+c': () => textSelected() ? false : act('copy'),
+    'Cmd+Shift+c': () => act('copyPath'),
+    'Cmd+,': () => setView('folders'),
+    Escape: close,
+  },
+  folders: {
+    'Cmd+,': () => setView('search'),
+    Escape: () => setView('search'),
+  },
+};
+
+// The whole query is selected on show, so only a partial query selection or selected preview text keeps native Cmd+C.
+const textSelected = () => document.activeElement === input
+  ? input.selectionEnd - input.selectionStart > 0 && input.selectionEnd - input.selectionStart < input.value.length
+  : String(getSelection()) !== '';
+
+function combo(e) {
+  let key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  // A Korean layout reports Cmd+C as "ㅊ"; fall back to the physical key so shortcuts work in any input source.
+  if (key.length === 1 && key > '~') key = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : e.code === 'Comma' ? ',' : key;
+  return (e.ctrlKey ? 'Ctrl+' : '') + (e.metaKey ? 'Cmd+' : '') + (e.shiftKey ? 'Shift+' : '') + (e.altKey ? 'Alt+' : '') + key;
+}
+
+document.addEventListener('keydown', e => {
+  // Enter that commits Hangul composition must not open a file.
+  if (e.isComposing || e.keyCode === 229 || state.phase === 'hidden' || state.phase === 'closing') return;
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button')) return;
+  const map = keymaps[state.view], key = combo(e);
+  if (Object.hasOwn(map, key)) {
+    if (map[key]() !== false) e.preventDefault();
+  } else if (state.view === 'search' && e.key.length === 1 && !e.metaKey && !e.ctrlKey && document.activeElement !== input) {
+    input.focus();
+  }
+});
+
+input.addEventListener('input', () => {
+  if (!calm.matches) $('bloom').animate([{ opacity: .25 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', composite: 'add' });
+  if (state.view === 'folders') setView('search');
+  later('debounce', 150, () => sendQuery(input.value));
+});
+
+const clicks = {
+  open: () => act('open'), reveal: () => act('reveal'), copy: () => act('copy'),
+  folders: () => setView(state.view === 'folders' ? 'search' : 'folders'),
+  addFolder: () => post({ type: 'addFolder' }),
+  enableBlur: () => post({ type: 'enableBlur' }),
+};
+document.addEventListener('click', e => {
+  const button = e.target.closest('[data-action]');
+  if (button && Object.hasOwn(clicks, button.dataset.action)) clicks[button.dataset.action]();
+});
+
+document.addEventListener('mousedown', e => {
+  if (e.target === body || e.target === document.documentElement) {
+    if (state.phase === 'open' || state.phase === 'opening') close();
+  } else if (e.target.closest('.row, button')) {
+    e.preventDefault();
+  }
+});
+
+rowsEl.addEventListener('click', e => {
+  const row = e.target.closest('.row');
+  if (row) select(Number(row.dataset.i));
+});
+rowsEl.addEventListener('dblclick', e => { if (e.target.closest('.row')) act('open'); });
+list.addEventListener('mousemove', e => {
+  const r = pill.getBoundingClientRect();
+  pill.style.setProperty('--mx', e.clientX - r.left + 'px');
+  pill.style.setProperty('--my', e.clientY - r.top + 'px');
+});
+
+render();
+post({ type: 'ready' });
+</script>
+</body>
+</html>
