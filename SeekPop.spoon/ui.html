@@ -73,15 +73,15 @@ button { font: inherit; color: inherit; }
 #stage::before { content: ""; position: absolute; inset: 0 0 var(--reveal); border-radius: 26px; box-shadow: 0 20px 50px var(--drop); }
 body[data-phase=hidden] #stage { visibility: hidden; }
 /* Open: the glass condenses as a search bar, then the results unfold below it, and the content follows in order. */
-body[data-phase=opening] #stage { animation: condense 240ms var(--out) both, unfold 420ms 60ms var(--glide) both; }
-body[data-phase=opening] :is(.glyph, #q) { animation: rise 260ms 40ms var(--out) both; }
-body[data-phase=opening] #foldersBtn { animation: rise 260ms 110ms var(--out) both; }
-body[data-phase=opening] header::after { animation: draw-line 440ms 110ms var(--glide) both; }
-body[data-phase=opening] :is(.results, .empty) { animation: rise 300ms 150ms var(--out) both; }
-body[data-phase=opening] .detail { animation: slide-in 340ms 210ms var(--out) both; }
-body[data-phase=opening] footer { animation: rise 280ms 270ms var(--out) both; }
-body[data-phase=opening] .aurora { animation: bloom-in 700ms 120ms var(--out) both; }
-body[data-phase=closing] #stage { animation: stage-out 160ms var(--out) both; }
+body[data-phase=opening] #stage { animation: condense 170ms var(--out) both, unfold 290ms 30ms var(--glide) both; }
+body[data-phase=opening] :is(.glyph, #q) { animation: rise 180ms 20ms var(--out) both; }
+body[data-phase=opening] #foldersBtn { animation: rise 180ms 60ms var(--out) both; }
+body[data-phase=opening] header::after { animation: draw-line 300ms 60ms var(--glide) both; }
+body[data-phase=opening] :is(.results, .empty) { animation: rise 210ms 90ms var(--out) both; }
+body[data-phase=opening] .detail { animation: slide-in 230ms 130ms var(--out) both; }
+body[data-phase=opening] footer { animation: rise 200ms 180ms var(--out) both; }
+body[data-phase=opening] .aurora { animation: bloom-in 480ms 60ms var(--out) both; }
+body[data-phase=closing] #stage { animation: stage-out 120ms var(--out) both; }
 @keyframes condense { from { opacity: 0; transform: translateY(-6px) scale(.97); filter: blur(8px); } }
 @keyframes unfold { from { --reveal: calc(100vh - 213px); } }
 @keyframes rise { from { opacity: 0; transform: translateY(5px); } }
@@ -94,7 +94,7 @@ body[data-phase=closing] #stage { animation: stage-out 160ms var(--out) both; }
 .halo { position: absolute; inset: -72px; pointer-events: none; transition: filter 300ms var(--out); }
 body[data-phase=opening] .halo {
   mask: conic-gradient(#000 calc(var(--sweep) - 50deg), transparent var(--sweep));
-  animation: ignite 600ms var(--out) both;
+  animation: ignite 420ms var(--out) both;
 }
 @keyframes ignite { from { --sweep: 0deg; } to { --sweep: 400deg; } }
 body[data-searching] .halo { filter: saturate(1.6) brightness(1.15); }
@@ -145,7 +145,7 @@ body[data-searching] .spin2 { animation-play-state: running; }
   opacity: 0;
 }
 /* The snapshot starts sharp, so it lines up with the real desktop whenever it arrives, then frosts over. */
-body[data-blur=on] .backdrop { opacity: 1; animation: frost 480ms var(--out) both; }
+body[data-blur=on] .backdrop { opacity: 1; animation: frost 340ms var(--out) both; }
 @keyframes frost { from { opacity: 0; filter: blur(0px) saturate(1) var(--tone-0); } 25% { opacity: 1; } }
 .tint { position: absolute; inset: 0; z-index: -1; background: var(--tint-solid); transition: background-color 200ms var(--out); }
 body:is([data-blur=on], [data-blur=wait]) .tint { background: var(--tint-blur); }
@@ -243,7 +243,7 @@ body[data-view=folders] .view-folders { transform: none; opacity: 1; filter: non
 .row .title, .row .snippet { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .title { font-size: 14px; font-weight: 600; letter-spacing: -.005em; }
 .row .snippet { font-size: 12.5px; color: var(--text-2); }
-.row.fresh { animation: row-in 260ms var(--out) both; animation-delay: calc(var(--i) * 22ms); }
+.row.fresh { animation: row-in 200ms var(--out) both; animation-delay: calc(var(--i) * 16ms); }
 @keyframes row-in { from { opacity: 0; transform: translateY(6px); filter: blur(4px); } }
 mark {
   color: inherit; border-radius: 4px; padding: 0 1px;
@@ -753,7 +753,7 @@ const handlers = {
     input.focus();
     input.select();
     sendQuery(input.value);
-    later('open', 600, () => {
+    later('open', 420, () => {
       if (state.phase !== 'opening') return;
       state.phase = 'open';
       render();
@@ -763,7 +763,7 @@ const handlers = {
     cancel('debounce', 'searching', 'copy', 'open', 'frost');
     Object.assign(state, { phase: 'closing', searching: false });
     render();
-    later('close', 160, () => {
+    later('close', 120, () => {
       Object.assign(state, { phase: 'hidden', blur: 'off' });
       $('backdrop').style.backgroundImage = '';
       render();
