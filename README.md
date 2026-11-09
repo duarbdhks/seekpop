@@ -102,7 +102,6 @@ Without the permission, the palette uses a tinted glass background. To turn the 
 
 ## Roadmap
 
-- Show the selected file in a running Yazi instance with `ya emit-to`.
 - Search the text inside PDF files.
 
 ## Run the tests
