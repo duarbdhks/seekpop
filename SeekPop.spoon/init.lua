@@ -63,7 +63,7 @@ function enter.shown(self, from)
   self._previousApp = hs.application.frontmostApplication()
   local screen = hs.mouse.getCurrentScreen() or hs.screen.mainScreen()
   local f, full = screen:frame(), screen:fullFrame()
-  local w, h = math.min(1000, math.floor(f.w * 0.70)), 580
+  local w, h = math.min(860, math.floor(f.w * 0.70)), 580
   local x, y = f.x + (f.w - w) / 2, f.y + math.floor(f.h * 0.18)
   local snap = { x = x - full.x - 40, y = y - full.y - 40, w = w + 80, h = h + 80 }
   local shot = hs.screenRecordingState() and screen:snapshot(snap) or nil

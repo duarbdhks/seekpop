@@ -45,6 +45,8 @@ To open SeekPop from Spotlight, Launchpad, or the Dock, build the launcher app.
 
 The script creates `~/Applications/SeekPop.app`. The app opens `hammerspoon://seekpop`, which shows the palette, and starts Hammerspoon first if it is not running. If `app/AppIcon.png` exists, the script turns it into the app icon. Run the script again after you pull changes.
 
+The palette opens as a search bar. Results appear below it after you type, and clearing the query folds them away.
+
 ## Start SeekPop at login
 
 SeekPop runs inside Hammerspoon, so it starts when Hammerspoon starts. In Hammerspoon's settings, turn on **Launch Hammerspoon at login**. You can also run `hs.autoLaunch(true)` in the Hammerspoon console.
@@ -59,7 +61,7 @@ SeekPop starts with no folders. To add one, press ⌘, in the palette, then clic
 | --- | --- |
 | ⌥Space | Open or close the palette |
 | ↑ and ↓, or ⌃P and ⌃N | Move the selection |
-| Return | Open the file in its default app |
+| Return | Open the file in its default app. If you press it before results appear, SeekPop opens the first result when they arrive. |
 | ⌘Return | Show the file in Finder |
 | ⌘C | Copy the file. You can paste it in Finder or attach it in a chat app. |
 | ⌘⇧C | Copy the file path |
