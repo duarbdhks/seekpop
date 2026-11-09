@@ -1,118 +1,123 @@
-# SeekPop
+<h1 align="center">
+  <img src="assets/seekpop-hero.webp" width="1600" alt="SeekPop. Find files by what's inside.">
+</h1>
 
-Lightning-fast macOS file search powered by Hammerspoon and ripgrep. Search, open, and copy files with a keystroke.
+<p align="center">
+  Press <kbd>Option</kbd> + <kbd>Space</kbd> to search file contents and names on your Mac. Preview a match, then open or copy the file.
+</p>
 
-SeekPop opens a search palette when you press Option+Space in any app. It searches the contents and the names of the folders you add, hidden folders included, and shows the matching text next to the results. SeekPop keeps no index. Each search runs ripgrep over the files as they are now, so a file you saved a second ago is already searchable.
+<p align="center">
+  <a href="#quick-start"><strong>Quick start</strong></a> · <a href="#see-it-in-action">See it in action</a><br>
+  A macOS utility for Hammerspoon and ripgrep.
+</p>
 
-## Requirements
+## Why SeekPop
 
-- macOS with [Hammerspoon](https://www.hammerspoon.org). SeekPop is tested with Hammerspoon 1.1.1 on macOS 26.
-- [ripgrep](https://github.com/BurntSushi/ripgrep). Install it with `brew install ripgrep`.
-- Optional. Screen Recording permission for Hammerspoon, to blur the desktop behind the palette.
+You remember writing `retry budget` in a rollout plan, but can't remember the filename. SeekPop searches the folders you choose, including hidden folders like `~/.codex/plans`. It reads the files on disk for each query, so you can find a note as soon as you save it.
 
-## Install SeekPop
+## See it in action
 
-1. Clone the repository.
+![Open the SeekPop search bar, find retry budget in a Markdown file, then open or copy the file.](assets/seekpop-workflow.webp)
 
-	```sh
-	git clone https://github.com/duarbdhks/seekpop.git ~/develop/seekpop
-	```
+*The banner and walkthrough use SeekPop's webview rendered in a browser with sample files.*
 
-2. Link the Spoon into your Hammerspoon folder.
+1. Press <kbd>Option</kbd> + <kbd>Space</kbd> from any app. SeekPop opens as a search bar.
+2. Type `retry budget`. Results unfold beneath the bar. Use <kbd>↑</kbd> and <kbd>↓</kbd> to see each file with its matches highlighted.
+3. Press <kbd>Return</kbd> to open the selected file, <kbd>Cmd</kbd> + <kbd>C</kbd> to copy the file for pasting in Finder, or <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> to copy its path as text.
 
-	```sh
-	ln -s ~/develop/seekpop/SeekPop.spoon ~/.hammerspoon/Spoons/SeekPop.spoon
-	```
+## Quick start
 
-3. Add these lines to `~/.hammerspoon/init.lua`.
+SeekPop runs as a Hammerspoon Spoon on macOS. You need [Hammerspoon](https://www.hammerspoon.org/) and [ripgrep](https://github.com/BurntSushi/ripgrep). SeekPop has been tested with Hammerspoon 1.1.1 on macOS 26.
 
-	```lua
-	hs.loadSpoon("SeekPop")
-	spoon.SeekPop:bindHotkeys({ toggle = { { "alt" }, "space" } })
-	spoon.SeekPop:start()
-	```
+1. Install the dependencies with [Homebrew](https://brew.sh/) and launch Hammerspoon. Grant Hammerspoon Accessibility access when prompted so it can register the hotkey.
 
-4. Reload the Hammerspoon config.
-5. Press Option+Space, click **Folders**, and add the folders you want to search.
+   ```sh
+   brew install --cask hammerspoon
+   brew install ripgrep
+   open -a Hammerspoon
+   ```
 
-## Open SeekPop as an app
+2. Clone SeekPop and link the Spoon.
 
-To open SeekPop from Spotlight, Launchpad, or the Dock, build the launcher app.
+   ```sh
+   mkdir -p "$HOME/develop" "$HOME/.hammerspoon/Spoons"
+   git clone https://github.com/duarbdhks/seekpop.git "$HOME/develop/seekpop"
+   ln -s "$HOME/develop/seekpop/SeekPop.spoon" "$HOME/.hammerspoon/Spoons/SeekPop.spoon"
+   ```
 
-```sh
-~/develop/seekpop/scripts/install-app.sh
-```
+3. Add these lines to `~/.hammerspoon/init.lua`. Create the file if needed, then choose **Reload Config** from Hammerspoon's menu bar icon.
 
-The script creates `~/Applications/SeekPop.app`. The app opens `hammerspoon://seekpop`, which shows the palette, and starts Hammerspoon first if it is not running. If `app/AppIcon.png` exists, the script turns it into the app icon. Run the script again after you pull changes.
+   ```lua
+   hs.loadSpoon("SeekPop")
+   spoon.SeekPop:bindHotkeys({ toggle = { { "alt" }, "space" } })
+   spoon.SeekPop:start()
+   ```
 
-The palette opens as a search bar. Results appear below it after you type, and clearing the query folds them away.
+4. Press <kbd>Option</kbd> + <kbd>Space</kbd>, choose **Folders**, and add a folder with a few text files. Search for a phrase you remember from one of them.
 
-## Start SeekPop at login
+## Keyboard shortcuts
 
-SeekPop runs inside Hammerspoon, so it starts when Hammerspoon starts. In Hammerspoon's settings, turn on **Launch Hammerspoon at login**. You can also run `hs.autoLaunch(true)` in the Hammerspoon console.
-
-## Add folders to search
-
-SeekPop starts with no folders. To add one, press ⌘, in the palette, then click **Add folder…**. To pick a hidden folder such as `~/.codex/plans`, press ⌘⇧. in the picker to show hidden folders, or press ⌘⇧G and type the path. SeekPop saves the list in the Hammerspoon setting `SeekPop.roots`.
-
-## Keys
-
-| Key | Action |
+| Shortcut | Action |
 | --- | --- |
-| ⌥Space | Open or close the palette |
-| ↑ and ↓, or ⌃P and ⌃N | Move the selection |
-| Return | Open the file in its default app. If you press it before results appear, SeekPop opens the first result when they arrive. |
-| ⌘Return | Show the file in Finder |
-| ⌘C | Copy the file. You can paste it in Finder or attach it in a chat app. |
-| ⌘⇧C | Copy the file path |
-| ⌘, | Show or hide the folder list |
+| Option + Space | Open or close SeekPop |
+| ↑ / ↓ or Ctrl + P / Ctrl + N | Move through results |
+| Return | Open the file in its default app. Press it while a query is running to open the first result when it arrives. |
+| Cmd + Return | Reveal the file in Finder |
+| Cmd + C | Copy the file. If you have selected query or preview text, copy that text. |
+| Cmd + Shift + C | Copy the file path as text |
+| Cmd + , | Show or hide the folder list |
 | Esc | Close the folder list, then the palette |
 
-## How search matches files
+## How it works
 
-A file matches when every word of the query appears somewhere in the file, on any line and in any letter case. A file also matches when its name contains every word. SeekPop sorts results by modification time, newest first, and shows at most 50.
+Hammerspoon handles the hotkey, window, and macOS file actions. ripgrep scans the folders you choose on each query. SeekPop keeps no search index and runs searches and previews locally.
 
-Each row shows the first Markdown heading of the file, or the file name when the file has no heading, and the first matching line. The preview shows the file text with the query words highlighted.
+All query terms must appear in the file's contents or all must appear in its name. Matching is case-insensitive, and terms in the contents can appear on different lines. Results are sorted by most recently modified, with up to 50 shown by default. A Markdown heading near the top of a file becomes its result title when available. Each result can show a matching line, and its preview highlights matching text.
 
-SeekPop skips binary files, files larger than 2 MB, and the folders `.git`, `node_modules`, `dist`, `build`, and `.next`. ripgrep also skips files that a `.gitignore` file excludes.
+## Configuration
 
-## Settings
+**Search folders.** SeekPop starts with an empty folder list. Open **Folders** with <kbd>Cmd</kbd> + <kbd>,</kbd> and choose **Add folder…**. In the picker, use <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>.</kbd> to show hidden folders, or <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> to type a path. Hammerspoon saves the list as `SeekPop.roots`.
 
-Set these fields after `hs.loadSpoon` and before `start()`.
+Set these fields on `spoon.SeekPop` after `hs.loadSpoon` and before `start()`.
 
-| Field | Default | Meaning |
+| Field | Default | Purpose |
 | --- | --- | --- |
-| `rgPath` | First of `/opt/homebrew/bin/rg` and `/usr/local/bin/rg` | Path to the ripgrep binary |
-| `maxResults` | `50` | Maximum number of results |
-| `maxFileSize` | `"2M"` | Files larger than this are not searched by content |
-| `exclude` | `{".git", "node_modules", "dist", "build", ".next", ".DS_Store"}` | Names that ripgrep skips at any depth |
+| `rgPath` | First available of `/opt/homebrew/bin/rg` and `/usr/local/bin/rg` | Absolute path to ripgrep |
+| `maxResults` | `50` | Maximum results per query |
+| `maxFileSize` | `"2M"` | Size limit for content search, in ripgrep units |
+| `exclude` | `.git`, `node_modules`, `dist`, `build`, `.next`, `.DS_Store` | Files and folders to skip at any depth |
 
-The palette follows the system light or dark appearance and the Reduce motion setting.
+**Appearance and privacy.** The palette follows macOS light or dark mode and Reduce Motion. It uses tinted glass by default when Hammerspoon lacks Screen Recording permission. To enable desktop blur, choose **Turn on** in the folder list or allow Hammerspoon in **System Settings → Privacy & Security → Screen & System Audio Recording**. SeekPop captures a still of the area behind the palette when it opens and keeps it in memory. It never writes that image to disk.
 
-## Desktop blur and privacy
+**Search limits.** ripgrep follows ignore rules such as `.gitignore`. Content search skips binary files and files above the size limit. Their names can still match. Previews show up to 256 KB of UTF-8 text. Searching inside PDFs is on the roadmap.
 
-If Hammerspoon has Screen Recording permission, SeekPop captures the area behind the palette just before the palette opens and shows that image blurred. The image stays in memory and SeekPop never writes it to disk. The blur is a still image, so it does not change while the palette is open.
+<details>
+<summary>Optional launcher and startup at login</summary>
 
-Without the permission, the palette uses a tinted glass background. To turn the blur on, click **Turn on** in the folder list, or enable Hammerspoon in System Settings > Privacy & Security > Screen & System Audio Recording. macOS asks again from time to time to confirm the permission.
+After setting up the Spoon, run this command to open SeekPop from Spotlight, Launchpad, or the Dock.
+
+```sh
+"$HOME/develop/seekpop/scripts/install-app.sh"
+```
+
+The script builds `~/Applications/SeekPop.app` and uses `app/AppIcon.png` for its icon. The launcher starts Hammerspoon if needed, then sends it `hammerspoon://seekpop` to open the palette. Rerun the script after pulling launcher or icon updates.
+
+Enable **Launch Hammerspoon at login** in Hammerspoon settings, or run `hs.autoLaunch(true)` in the Hammerspoon console, to have SeekPop ready at login.
+
+</details>
 
 ## Troubleshooting
 
-- **Option+Space does nothing.** Another app can own the same shortcut. The ChatGPT desktop app uses Option+Space for its launcher by default. Turn the launcher off in ChatGPT, or bind SeekPop to another key.
-- **The palette says ripgrep was not found.** Install ripgrep with Homebrew, or set `spoon.SeekPop.rgPath` to the binary.
+- **Option + Space does nothing.** Check that Hammerspoon is running, has Accessibility access, and has reloaded its config. If a launcher such as ChatGPT is already using the shortcut, change one of the bindings in its settings or in `bindHotkeys`.
+- **ripgrep was not found.** Run `command -v rg` in Terminal. Install ripgrep if it is missing, or set `spoon.SeekPop.rgPath` to the absolute path it prints and reload Hammerspoon.
+- **A file is missing from results.** Check that its folder is in **Folders** and that Hammerspoon can read it. Check ripgrep's ignore rules, then try searching by filename.
 
-## Roadmap
+## Development and license
 
-- Search the text inside PDF files.
-
-## Run the tests
-
-The tests run inside Hammerspoon through its `hs` command-line tool, which needs `require("hs.ipc")` in your config.
+Run the search tests from the repository root with Hammerspoon's `hs` CLI installed and `require("hs.ipc")` in your Hammerspoon config.
 
 ```sh
 hs -c "dofile('$PWD/tests/search_test.lua')"
 ```
 
-## License
-
-[MIT](LICENSE)
-
+SeekPop is released under the [MIT License](LICENSE).
