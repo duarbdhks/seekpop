@@ -6,7 +6,6 @@
 <meta name="color-scheme" content="dark light">
 <title>SeekPop</title>
 <style>
-@property --sweep { syntax: '<angle>'; inherits: false; initial-value: 400deg; }
 @property --reveal { syntax: '<length>'; inherits: true; initial-value: 0px; }
 
 :root {
@@ -116,15 +115,17 @@ header::after { opacity: 0; transform: scaleX(0); transition: opacity 150ms var(
 [data-open=y][data-size=panel] footer { transition: opacity 220ms 130ms var(--fade), transform 260ms 130ms var(--settle); }
 [data-open=y] .aurora { opacity: var(--aurora); transition: opacity 500ms 60ms var(--fade); }
 
-/* Rim light: one rotating conic gradient, drawn as a blurred bloom below the glass, a soft edge light and a 1.5px ring above it. */
+/* Rim light: one gradient band flowing sideways, drawn as a blurred bloom below the glass, a soft edge light and a 1.5px ring above it.
+   A band, not a conic: on a bar this wide a conic crowds its hues into the middle and seams the bar there. */
 .halo { position: absolute; inset: -72px; pointer-events: none; transition: filter 300ms var(--out); }
+/* Lights up from the middle outward; at its 160% end the mask is opaque everywhere, so dropping it on open does not jump. */
 body[data-phase=opening] .halo {
-  mask: conic-gradient(#000 calc(var(--sweep) - 50deg), transparent var(--sweep));
+  mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent) center / 160% 100% no-repeat;
   animation: ignite 420ms var(--out) both;
 }
-@keyframes ignite { from { --sweep: 0deg; } to { --sweep: 400deg; } }
+@keyframes ignite { from { mask-size: 0% 100%; } }
 body[data-searching] .halo { filter: saturate(1.6) brightness(1.15); }
-.ring { position: absolute; inset: 72px 72px calc(72px + var(--reveal)); border-radius: 26px; overflow: hidden; container-type: size; }
+.ring { position: absolute; inset: 72px 72px calc(72px + var(--reveal)); border-radius: 26px; overflow: hidden; }
 .cut {
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -135,18 +136,18 @@ body[data-searching] .halo { filter: saturate(1.6) brightness(1.15); }
 .edge { position: absolute; inset: 0; filter: blur(6px); opacity: .7; }
 .edge .ring { padding: 5px; }
 .spin {
-  --d: hypot(100cqw, 100cqh);
-  position: absolute; left: 50%; top: 50%;
-  width: var(--d); height: var(--d); margin: calc(var(--d) / -2);
-  animation: turn 14s linear infinite;
+  /* Three pattern lengths wide, so both nested shifts together never uncover the ring. */
+  position: absolute; left: 0; top: 0; width: 300%; height: 100%;
+  animation: flow 14s linear infinite;
 }
 .spin2 {
   position: absolute; inset: 0;
-  background: conic-gradient(var(--iris), #FF9F43);
-  /* Adds to the parent's 14s turn, so while searching the rim runs one turn per 2.4s without jumping. */
-  animation: turn 2.9s linear infinite paused;
+  background: linear-gradient(90deg, var(--iris), #FF9F43) 0 0 / calc(100% / 3) 100% repeat-x;
+  /* Adds to the parent's 14s flow, so while searching the rim moves one pattern length per 2.4s without jumping. */
+  animation: flow 2.9s linear infinite paused;
 }
 body[data-searching] .spin2 { animation-play-state: running; }
+@keyframes flow { to { transform: translateX(-33.3333%); } }
 @keyframes turn { to { transform: rotate(1turn); } }
 
 #panel {
