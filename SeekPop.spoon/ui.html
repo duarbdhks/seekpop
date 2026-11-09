@@ -16,8 +16,8 @@
   --fade: cubic-bezier(.33, 0, .2, 1);
   --settle: cubic-bezier(.2, .9, .25, 1);
   --iris: #FF9F43, #FF4FA3, #A45CFF, #4F7BFF, #22D3EE;
-  --tint-blur: rgba(30, 27, 44, .52);
-  --tint-solid: rgba(24, 22, 36, .90);
+  --tint-blur: rgba(24, 24, 28, .56);
+  --tint-solid: rgba(22, 22, 26, .92);
   --text: #F5F5F7;
   --text-2: rgba(235, 235, 245, .62);
   --hairline: rgba(255, 255, 255, .10);
@@ -27,29 +27,42 @@
   --drop: rgba(0, 0, 0, .45);
   --backdrop-tone: brightness(.55);
   --tone-0: brightness(1);
-  --mark: linear-gradient(90deg, rgba(255, 79, 163, .36), rgba(164, 92, 255, .36));
+  --mark: linear-gradient(90deg, rgba(255, 255, 255, .18), rgba(255, 255, 255, .18));
+  --mark-hit: linear-gradient(90deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, .32));
+  --selection: rgba(255, 255, 255, .22);
+  --caret: #FFFFFF;
+  --primary-bg: rgba(255, 255, 255, .92);
+  --primary-fg: #1D1D1F;
+  --focus: #4F7BFF;
   --warn: #FFB547;
   --danger: #FF7A85;
-  --aurora: .24;
+  --aurora: .05;
+  --aurora-ink: rgba(255, 255, 255, .9);
   --aurora-blend: screen;
+  --fold: calc(100vh - 213px);
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --tint-blur: rgba(250, 249, 255, .55);
-    --tint-solid: rgba(246, 245, 252, .92);
+    --tint-blur: rgba(250, 250, 252, .58);
+    --tint-solid: rgba(246, 246, 248, .92);
     --text: #1D1D1F;
     --text-2: rgba(60, 60, 67, .64);
     --hairline: rgba(0, 0, 0, .08);
     --specular: rgba(255, 255, 255, .75);
     --raised: rgba(255, 255, 255, .55);
     --raised-edge: rgba(0, 0, 0, .06);
-    --drop: rgba(40, 30, 80, .22);
+    --drop: rgba(0, 0, 0, .18);
     --backdrop-tone: contrast(.55) brightness(1.45);
     --tone-0: contrast(1) brightness(1);
-    --mark: linear-gradient(90deg, rgba(255, 79, 163, .30), rgba(164, 92, 255, .30));
+    --mark: linear-gradient(90deg, rgba(0, 0, 0, .08), rgba(0, 0, 0, .08));
+    --mark-hit: linear-gradient(90deg, rgba(0, 0, 0, .14), rgba(0, 0, 0, .14));
+    --selection: rgba(0, 0, 0, .12);
+    --caret: #1D1D1F;
+    --primary-bg: #1D1D1F;
+    --primary-fg: #FFFFFF;
     --warn: #B25E00;
     --danger: #D70015;
-    --aurora: .12;
+    --aurora: .04;
     --aurora-blend: soft-light;
   }
 }
@@ -75,7 +88,7 @@ button { font: inherit; color: inherit; }
 #stage {
   position: relative; width: 100%; height: 100%;
   opacity: 0; transform: translateY(-6px) scale(.97); filter: blur(8px);
-  --reveal: calc(100vh - 213px);
+  --reveal: var(--fold);
   /* The fold resets only after the fade, so reopening during a close does not fold and unfold the panel. */
   transition: opacity 200ms var(--fade), transform 200ms var(--fade), filter 200ms var(--fade), --reveal 0s 220ms;
 }
@@ -85,18 +98,23 @@ body[data-phase=hidden] #stage { visibility: hidden; }
 #foldersBtn { opacity: 0; transform: translateY(5px); transition: opacity 150ms var(--fade), transform 150ms var(--fade), color 160ms, background-color 160ms; }
 .detail { opacity: 0; transform: translateX(12px); filter: blur(3px); transition: opacity 150ms var(--fade), transform 150ms var(--fade), filter 150ms var(--fade); }
 header::after { opacity: 0; transform: scaleX(0); transition: opacity 150ms var(--fade), transform 150ms var(--fade); }
-/* Open: the glass condenses as a search bar, the results unfold below it, and the content follows in order. */
+/* Open: the glass condenses as a search bar. The results unfold below it only once a search returns. */
 [data-open=y] #stage {
-  opacity: 1; transform: none; filter: none; --reveal: 0px;
-  transition: opacity 240ms var(--fade), transform 320ms var(--settle), filter 260ms var(--fade), --reveal 300ms 50ms var(--glide);
+  opacity: 1; transform: none; filter: none;
+  transition: opacity 240ms var(--fade), transform 320ms var(--settle), filter 260ms var(--fade), --reveal 220ms var(--glide);
 }
-[data-open=y] :is(.glyph, #q, #foldersBtn, .results, .empty, footer, .detail), [data-open=y] header::after { opacity: 1; transform: none; filter: none; }
+[data-open=y][data-size=panel] #stage {
+  --reveal: 0px;
+  transition: opacity 240ms var(--fade), transform 320ms var(--settle), filter 260ms var(--fade), --reveal 300ms var(--glide);
+}
+[data-open=y] :is(.glyph, #q, #foldersBtn) { opacity: 1; transform: none; }
 [data-open=y] :is(.glyph, #q) { transition: opacity 220ms 30ms var(--fade), transform 260ms 30ms var(--settle); }
 [data-open=y] #foldersBtn { transition: opacity 220ms 70ms var(--fade), transform 260ms 70ms var(--settle), color 160ms, background-color 160ms; }
-[data-open=y] header::after { transition: opacity 200ms 70ms var(--fade), transform 320ms 70ms var(--glide); }
-[data-open=y] :is(.results, .empty) { transition: opacity 240ms 110ms var(--fade), transform 280ms 110ms var(--settle); }
-[data-open=y] .detail { transition: opacity 260ms 150ms var(--fade), transform 300ms 150ms var(--settle), filter 260ms 150ms var(--fade); }
-[data-open=y] footer { transition: opacity 240ms 190ms var(--fade), transform 280ms 190ms var(--settle); }
+[data-open=y][data-size=panel] :is(.results, .empty, footer, .detail), [data-open=y][data-size=panel] header::after { opacity: 1; transform: none; filter: none; }
+[data-open=y][data-size=panel] header::after { transition: opacity 200ms var(--fade), transform 300ms var(--glide); }
+[data-open=y][data-size=panel] :is(.results, .empty) { transition: opacity 220ms 40ms var(--fade), transform 260ms 40ms var(--settle); }
+[data-open=y][data-size=panel] .detail { transition: opacity 240ms 90ms var(--fade), transform 280ms 90ms var(--settle), filter 240ms 90ms var(--fade); }
+[data-open=y][data-size=panel] footer { transition: opacity 220ms 130ms var(--fade), transform 260ms 130ms var(--settle); }
 [data-open=y] .aurora { opacity: var(--aurora); transition: opacity 500ms 60ms var(--fade); }
 
 /* Rim light: one rotating conic gradient, drawn as a blurred bloom below the glass, a soft edge light and a 1.5px ring above it. */
@@ -160,9 +178,10 @@ body[data-blur=on] .backdrop { opacity: 1; animation: frost 340ms var(--out) bot
 body:is([data-blur=on], [data-blur=wait]) .tint { background: var(--tint-blur); }
 .aurora { position: absolute; inset: 0; z-index: -1; opacity: 0; mix-blend-mode: var(--aurora-blend); transition: opacity 150ms var(--fade); }
 .aurora i { position: absolute; width: 62%; aspect-ratio: 1; border-radius: 50%; }
-.aurora i:nth-child(1) { left: -14%; top: -48%; background: radial-gradient(closest-side, #FF4FA3, transparent); animation: drift-a 20s ease-in-out infinite alternate; }
-.aurora i:nth-child(2) { right: -18%; top: -30%; background: radial-gradient(closest-side, #A45CFF, transparent); animation: drift-b 26s ease-in-out infinite alternate; }
-.aurora i:nth-child(3) { left: 22%; bottom: -62%; background: radial-gradient(closest-side, #22D3EE, transparent); animation: drift-c 32s ease-in-out infinite alternate; }
+.aurora i { background: radial-gradient(closest-side, var(--aurora-ink), transparent); }
+.aurora i:nth-child(1) { left: -14%; top: -48%; animation: drift-a 20s ease-in-out infinite alternate; }
+.aurora i:nth-child(2) { right: -18%; top: -30%; animation: drift-b 26s ease-in-out infinite alternate; }
+.aurora i:nth-child(3) { left: 22%; bottom: -62%; animation: drift-c 32s ease-in-out infinite alternate; }
 @keyframes drift-a { to { transform: translate(22%, 26%) scale(1.15); } }
 @keyframes drift-b { to { transform: translate(-26%, 18%) scale(.9); } }
 @keyframes drift-c { to { transform: translate(18%, -20%) scale(1.1); } }
@@ -185,12 +204,12 @@ body[data-searching] .spark path { animation-play-state: running; }
 #q {
   flex: 1; min-width: 0;
   font-family: inherit; font-size: 24px; font-weight: 500; line-height: 1.2; letter-spacing: -.01em;
-  color: var(--text); caret-color: #C86BFF;
+  color: var(--text); caret-color: var(--caret);
   background: none; border: 0; outline: 0; padding: 0;
   user-select: text; -webkit-user-select: text;
 }
 #q::placeholder { color: var(--text-2); }
-#q::selection { background: rgba(164, 92, 255, .42); }
+#q::selection { background: var(--selection); }
 .capsule {
   display: inline-flex; align-items: center; gap: 8px;
   height: 30px; padding: 0 6px 0 13px; border: 0; border-radius: 999px;
@@ -284,7 +303,7 @@ mark {
 @keyframes pv-out { to { opacity: 0; filter: blur(3px); } }
 .pv.unavailable { display: grid; place-items: center; white-space: normal; color: var(--text-2); cursor: default; }
 .pv mark.hit {
-  background-image: linear-gradient(90deg, rgba(255, 79, 163, .62), rgba(164, 92, 255, .62));
+  background-image: var(--mark-hit);
   animation: mark-in 300ms 120ms var(--out) both;
 }
 .pv-note { margin-top: 14px; font-size: 12px; color: var(--text-2); }
@@ -312,17 +331,17 @@ mark {
 .btn:hover { filter: brightness(1.12); }
 .btn:active { transform: scale(.97); }
 .btn.primary {
-  color: #fff; text-shadow: 0 1px 2px rgba(60, 0, 80, .35);
-  background: linear-gradient(115deg, #FF9F43, #FF4FA3 30%, #A45CFF 62%, #4F7BFF 88%, #22D3EE);
+  color: var(--primary-fg);
+  background: var(--primary-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 4px 12px rgba(0, 0, 0, .22);
 }
-.btn:focus-visible, .capsule:focus-visible, .icon-btn:focus-visible { outline: 2px solid #A45CFF; outline-offset: 2px; }
+.btn:focus-visible, .capsule:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .empty { position: absolute; inset: 0; display: none; place-content: center; justify-items: center; gap: 14px; text-align: center; }
 .view-search:not([data-content=results]) .empty { display: grid; }
 .orb {
   width: 150px; height: 150px; border-radius: 50%; margin-bottom: 4px;
-  background: radial-gradient(circle at 36% 34%, rgba(255, 79, 163, .75), rgba(164, 92, 255, .5) 42%, rgba(34, 211, 238, .25) 66%, transparent 70%);
+  background: radial-gradient(circle at 36% 34%, rgba(255, 255, 255, .55), rgba(79, 123, 255, .28) 45%, rgba(34, 211, 238, .16) 66%, transparent 70%);
   filter: blur(14px);
   animation: orb 7s ease-in-out infinite alternate;
 }
@@ -386,12 +405,12 @@ body[data-searching] footer:not([data-tone=error]) #status { animation: shimmer 
   position: absolute; left: -6px; top: 50%; margin-top: -13px;
   display: inline-flex; align-items: center; gap: 6px;
   height: 26px; padding: 0 12px 0 8px; border-radius: 999px;
-  font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(60, 0, 80, .3);
-  background: linear-gradient(115deg, #FF9F43, #FF4FA3 30%, #A45CFF 62%, #4F7BFF 88%, #22D3EE);
+  font-weight: 600; color: var(--primary-fg);
+  background: var(--primary-bg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .4);
   opacity: 0; transform: scale(.6);
 }
-.toast svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.toast svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .toast path { stroke-dasharray: 22; stroke-dashoffset: 22; }
 footer[data-toast] .toast { animation: pop 380ms var(--spring) both; }
 footer[data-toast] .toast path { animation: draw 320ms 140ms var(--out) forwards; }
@@ -405,7 +424,7 @@ body[data-phase=hidden] *, body[data-phase=hidden] *::before, body[data-phase=hi
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
-  #stage { transform: none !important; filter: none !important; --reveal: 0px !important; transition: opacity 120ms !important; }
+  #stage { transform: none !important; filter: none !important; transition: opacity 120ms !important; }
   .glyph, #q, #foldersBtn, .results, .empty, footer, .detail, header::after { opacity: 1 !important; transform: none !important; filter: none !important; }
   .aurora { opacity: var(--aurora) !important; }
   body[data-blur=on] .backdrop { transition: opacity 120ms !important; }
@@ -501,7 +520,7 @@ const clone = id => $(id).content.firstElementChild.cloneNode(true);
 const state = {
   phase: 'hidden', view: 'search', query: '', queryId: 0, searching: false,
   items: null, selected: -1, elapsedMs: null, warnings: [], preview: null,
-  roots: null, screenRecording: true, blur: 'off', notice: null,
+  roots: null, screenRecording: true, blur: 'off', notice: null, resultsFor: null, pendingOpen: false,
 };
 const timers = {};
 const later = (name, ms, fn) => { clearTimeout(timers[name]); timers[name] = setTimeout(fn, ms); };
@@ -515,7 +534,10 @@ const hints = {
 
 function render() {
   const open = state.phase === 'opening' || state.phase === 'open';
-  Object.assign(body.dataset, { phase: state.phase, open: open ? 'y' : 'n', view: state.view, blur: state.blur });
+  // The palette stays a bare search bar until there is something to show under it.
+  const panel = state.view === 'folders' || state.roots?.length === 0
+    || (state.query.trim() !== '' && (state.items !== null || state.notice !== null));
+  Object.assign(body.dataset, { phase: state.phase, open: open ? 'y' : 'n', view: state.view, blur: state.blur, size: panel ? 'panel' : 'bar' });
   body.toggleAttribute('data-searching', state.searching);
   const q = state.query.trim(), n = state.items?.length ?? 0;
   const noun = (q ? ['result', 'results'] : ['file', 'files'])[n === 1 ? 0 : 1];
@@ -752,7 +774,12 @@ const handlers = {
     cancel('close', 'copy', 'frost');
     delete $('foot').dataset.toast;
     const snapshot = Boolean($('backdrop').style.backgroundImage);
-    Object.assign(state, { phase: 'opening', view: 'search', notice: null, blur: msg.blur ? (snapshot ? 'on' : 'wait') : 'off' });
+    input.value = '';
+    Object.assign(state, {
+      phase: 'opening', view: 'search', notice: null, blur: msg.blur ? (snapshot ? 'on' : 'wait') : 'off',
+      query: '', items: null, selected: -1, preview: null, resultsFor: null, pendingOpen: false,
+    });
+    renderPreview();
     // The desktop snapshot arrives just after show; if it never does, fall back to the solid tint.
     if (state.blur === 'wait') later('frost', 250, () => {
       if (state.blur !== 'wait') return;
@@ -761,8 +788,6 @@ const handlers = {
     });
     render();
     input.focus();
-    input.select();
-    sendQuery(input.value);
     later('open', 420, () => {
       if (state.phase !== 'opening') return;
       state.phase = 'open';
@@ -771,7 +796,7 @@ const handlers = {
   },
   hide() {
     cancel('debounce', 'searching', 'copy', 'open', 'frost');
-    Object.assign(state, { phase: 'closing', searching: false });
+    Object.assign(state, { phase: 'closing', searching: false, pendingOpen: false });
     render();
     later('close', 200, () => {
       Object.assign(state, { phase: 'hidden', blur: 'off' });
@@ -800,12 +825,16 @@ const handlers = {
     const prev = new Set((state.items || []).map(item => item.path));
     const keep = state.items?.[state.selected]?.path;
     state.items = Array.isArray(msg.items) ? msg.items : [];
-    Object.assign(state, { searching: false, elapsedMs: msg.elapsedMs, warnings: msg.warnings || [] });
+    Object.assign(state, { searching: false, elapsedMs: msg.elapsedMs, warnings: msg.warnings || [], resultsFor: state.query });
     const i = state.items.findIndex(item => item.path === keep);
     state.selected = i >= 0 ? i : state.items.length ? 0 : -1;
     renderRows(prev);
     render();
     select(state.selected, true);
+    if (state.pendingOpen) {
+      state.pendingOpen = false;
+      act('open');
+    }
   },
   preview(msg) {
     if (msg.path !== state.items?.[state.selected]?.path) return;
@@ -819,7 +848,7 @@ const handlers = {
     renderRoots(prev);
     render();
     const paths = roots => roots.map(r => r.path).join('\n');
-    if (prev && paths(prev) !== paths(state.roots) && (state.phase === 'open' || state.phase === 'opening')) sendQuery(input.value);
+    if (prev && paths(prev) !== paths(state.roots) && (state.phase === 'open' || state.phase === 'opening') && input.value.trim()) sendQuery(input.value);
   },
   done(msg) {
     if (!msg.ok) {
@@ -831,7 +860,7 @@ const handlers = {
   },
   error(msg) {
     cancel('searching');
-    Object.assign(state, { searching: false, notice: msg.message || 'Search failed' });
+    Object.assign(state, { searching: false, pendingOpen: false, notice: msg.message || 'Search failed' });
     render();
   },
 };
@@ -842,7 +871,12 @@ const keymaps = {
   search: {
     ArrowDown: () => move(1), 'Ctrl+n': () => move(1),
     ArrowUp: () => move(-1), 'Ctrl+p': () => move(-1),
-    Enter: () => act('open'),
+    Enter: () => {
+      // Return typed ahead of the results opens the first hit as soon as it arrives.
+      if (!input.value.trim() || state.resultsFor === input.value) return act('open');
+      state.pendingOpen = true;
+      if (state.query !== input.value) sendQuery(input.value);
+    },
     'Cmd+Enter': () => act('reveal'),
     'Cmd+c': () => textSelected() ? false : act('copy'),
     'Cmd+Shift+c': () => act('copyPath'),
@@ -855,9 +889,9 @@ const keymaps = {
   },
 };
 
-// The whole query is selected on show, so only a partial query selection or selected preview text keeps native Cmd+C.
+// Selected query or preview text keeps native Cmd+C; otherwise Cmd+C copies the file.
 const textSelected = () => document.activeElement === input
-  ? input.selectionEnd - input.selectionStart > 0 && input.selectionEnd - input.selectionStart < input.value.length
+  ? input.selectionEnd > input.selectionStart
   : String(getSelection()) !== '';
 
 function combo(e) {
@@ -882,7 +916,13 @@ document.addEventListener('keydown', e => {
 input.addEventListener('input', () => {
   if (!calm.matches) $('bloom').animate([{ opacity: .25 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', composite: 'add' });
   if (state.view === 'folders') setView('search');
-  later('debounce', 150, () => sendQuery(input.value));
+  state.pendingOpen = false;
+  if (input.value.trim()) return later('debounce', 150, () => sendQuery(input.value));
+  // An empty query folds the panel back into the bar; the bump drops any reply still in flight.
+  cancel('debounce', 'searching');
+  state.queryId += 1;
+  Object.assign(state, { query: '', items: null, selected: -1, searching: false, notice: null, resultsFor: null });
+  render();
 });
 
 const clicks = {
@@ -897,7 +937,8 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('mousedown', e => {
-  if (e.target === body || e.target === document.documentElement) {
+  // The stage is only hit outside the visible panel, e.g. the folded space under the bar.
+  if (e.target === body || e.target === document.documentElement || e.target === $('stage')) {
     if (state.phase === 'open' || state.phase === 'opening') close();
   } else if (e.target.closest('.row, button')) {
     e.preventDefault();
