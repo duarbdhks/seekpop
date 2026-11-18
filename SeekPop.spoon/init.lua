@@ -34,6 +34,15 @@ local DIR = hs.spoons.scriptPath()
 local search = dofile(DIR .. "search.lua")
 local HOME = os.getenv("HOME")
 local ROOTS_KEY = "SeekPop.roots"
+local SHORTCUT_KEY = "SeekPop.shortcut"
+local SHORTCUT_MODS = { "alt", "ctrl", "cmd", "shift" }
+local ESCAPE_KEY = 0x35
+-- WebKit uses layout characters and falls back to physical keys for non-Latin input.
+local PALETTE_KEYS = {
+  cmd = { [0x08] = true, [0x24] = true, [0x2b] = true, [0x4c] = true, c = true, [","] = true },
+  ["cmd+shift"] = { [0x08] = true, c = true },
+  ctrl = { [0x2d] = true, [0x23] = true, n = true, p = true },
+}
 local RG_CANDIDATES = { "/opt/homebrew/bin/rg", "/usr/local/bin/rg" }
 local PREVIEW_BYTES = 256 * 1024
 local CLOSE_FALLBACK_SECONDS = 0.3
@@ -83,6 +92,7 @@ function enter.shown(self, from)
 end
 
 function enter.closing(self)
+  self:_endShortcutCapture()
   self:_send({ type = "hide" })
   self._closeTimer = hs.timer.doAfter(CLOSE_FALLBACK_SECONDS, function() self:_fire("closed") end)
 end
@@ -121,6 +131,132 @@ function obj:_sendFolders()
   self:_send({ type = "folders", roots = roots, screenRecording = hs.screenRecordingState() })
 end
 
+local function shortcutFromFlags(flags, keycode)
+  if not (flags.alt or flags.ctrl or flags.cmd) then return end
+  -- Carbon's virtual keycodes 0x36 through 0x3f are the modifier keys.
+  if type(keycode) ~= "number" or keycode % 1 ~= 0 or keycode < 0 or keycode > 0x7f
+    or (keycode >= ESCAPE_KEY and keycode <= 0x3f) then return end
+  local mods = {}
+  for _, mod in ipairs(SHORTCUT_MODS) do
+    if flags[mod] then mods[#mods + 1] = mod end
+  end
+  return { mods = mods, keycode = keycode }
+end
+
+local function validateSavedShortcut(value)
+  if type(value) ~= "table" or type(value.mods) ~= "table" then return end
+  local flags, count = {}, 0
+  for i, mod in pairs(value.mods) do
+    if type(i) ~= "number" or i % 1 ~= 0 or i < 1 or i > #SHORTCUT_MODS
+      or not (mod == "alt" or mod == "ctrl" or mod == "cmd" or mod == "shift") or flags[mod] then return end
+    flags[mod], count = true, count + 1
+  end
+  for i = 1, count do
+    if value.mods[i] == nil then return end
+  end
+  return shortcutFromFlags(flags, value.keycode)
+end
+
+function obj:_sendShortcut(status)
+  self:_send({
+    type = "shortcut",
+    chord = self._hotkey and self._hotkey.idx or "Not set",
+    recording = self._capture ~= nil,
+    status = status or (self._capture and "Press a new shortcut or Esc to cancel.") or self._shortcutStatus or "",
+  })
+end
+
+function obj:_endShortcutCapture(status)
+  local capture = self._capture
+  if not capture then return end
+  self._capture = nil
+  if capture.finishTimer then
+    capture.finishTimer:stop()
+    capture.finishTimer = nil
+  end
+  if capture.tap then
+    capture.tap:stop()
+    capture.tap = nil
+  end
+  self:_sendShortcut(status)
+end
+
+local function registerShortcut(self, mods, key, source, message)
+  local candidate
+  local failure = "Could not register the shortcut."
+  local ok, bound, reason = pcall(function()
+    local keycode = key
+    if type(key) == "string" then
+      keycode = key:sub(1, 1) == "#" and tonumber(key:sub(2)) or hs.keycodes.map[key:lower()]
+    end
+    local chord
+    candidate = hs.hotkey.new(mods, keycode, function()
+      if self._capture then
+        -- Carbon can deliver the registered opener before the tap sees it.
+        self._capture.currentKeycode = keycode
+        return
+      end
+      if type(message) == "string" then
+        hs.alert.show(chord .. (message == "" and "" or ": " .. message), hs.hotkey.alertDuration or 0)
+      end
+      self:toggle()
+    end, function()
+      local capture = self._capture
+      if capture and capture.currentKeycode == keycode then self:_endShortcutCapture() end
+    end)
+    chord = candidate.idx
+    -- Enabling a matching .idx silently shadows a Hammerspoon binding.
+    for _, active in ipairs(hs.hotkey.getHotkeys()) do
+      if active.idx == candidate.idx then
+        if active == self._hotkey then return true end
+        return false, "This shortcut is already used by Hammerspoon."
+      end
+    end
+    if source then
+      local reserved = PALETTE_KEYS[table.concat(mods, "+")]
+      if reserved and (reserved[keycode] or reserved[hs.keycodes.map[keycode]]) then
+        return false, "This shortcut is already used inside SeekPop."
+      end
+      local assigned = hs.hotkey.systemAssigned(mods, keycode)
+      if assigned == nil then return false, "Could not check macOS shortcuts." end
+      if assigned and assigned.enabled then return false, "This shortcut is already used by macOS." end
+    end
+    if not candidate:enable() then return false, failure end
+    if source == "recorded" then
+      failure = "Could not save the shortcut."
+      hs.settings.set(SHORTCUT_KEY, { mods = mods, keycode = keycode })
+    end
+    if self._hotkey then self._hotkey:delete() end
+    self._hotkey, candidate = candidate, nil
+    self._usingSavedShortcut = source ~= nil
+    if source then self._shortcutStatus = nil end
+    return true
+  end)
+  if candidate then candidate:delete() end
+  if not ok then return false, failure end
+  return bound, reason
+end
+
+function obj:_restoreShortcut()
+  self._shortcutStatus = nil
+  local value = hs.settings.get(SHORTCUT_KEY)
+  if value ~= nil then
+    local saved = validateSavedShortcut(value)
+    local bound, reason
+    if saved then bound, reason = registerShortcut(self, saved.mods, saved.keycode, "saved") end
+    if bound then
+      self._usingSavedShortcut = true
+      return
+    end
+    self._shortcutStatus = "Saved shortcut unavailable. " .. (reason or "The saved combination is invalid.")
+  end
+  local fallback = self._fallbackShortcut
+  if fallback then
+    local bound, reason = registerShortcut(self, fallback[1], fallback[2], nil, fallback.message)
+    if not bound and not self._shortcutStatus then self._shortcutStatus = reason end
+  end
+end
+
 function obj:_rgPath()
   if self.rgPath then return self.rgPath end
   for _, path in ipairs(RG_CANDIDATES) do
@@ -152,6 +288,51 @@ function handlers.ready(self)
   self._queue = {}
   for _, msg in ipairs(queued) do self:_send(msg) end
   self:_sendFolders()
+  self:_sendShortcut()
+end
+
+function handlers.shortcut(self, msg)
+  if msg.action == "cancel" then return self:_endShortcutCapture() end
+  if msg.action ~= "begin" or self._state ~= "shown" or self._pickingFolder or self._capture then return end
+  if hs.eventtap.isSecureInputEnabled() then
+    return self:_sendShortcut("Turn off Secure Input in the active app to record a shortcut.")
+  end
+
+  local capture = {}
+  local types = hs.eventtap.event.types
+  self._capture = capture
+  local ok, enabled = pcall(function()
+    capture.tap = hs.eventtap.new({ types.keyDown, types.keyUp }, function(event)
+      if self._capture ~= capture then return false end
+      if capture.finishTimer then return true end
+      local keycode = event:getKeyCode()
+      if event:getType() == types.keyDown then
+        if event:getProperty(hs.eventtap.event.properties.keyboardEventAutorepeat) ~= 0 then return true end
+        if keycode == ESCAPE_KEY then
+          capture.pending = { keycode = keycode }
+        elseif not (capture.pending or capture.currentKeycode) then
+          capture.pending = shortcutFromFlags(event:getFlags(), keycode)
+          if not capture.pending then self:_sendShortcut("Use Command, Option, or Control with another key.") end
+        end
+      elseif keycode == capture.currentKeycode or (capture.pending and keycode == capture.pending.keycode) then
+        local shortcut = capture.pending
+        -- Finish outside the tap callback so native registration cannot hold up keyboard events.
+        capture.finishTimer = hs.timer.doAfter(0, function()
+          if self._capture ~= capture then return end
+          local _, reason
+          if shortcut and shortcut.mods and not capture.currentKeycode then
+            _, reason = registerShortcut(self, shortcut.mods, shortcut.keycode, "recorded")
+          end
+          self:_endShortcutCapture(reason)
+        end)
+      end
+      return true
+    end)
+    capture.tap:start()
+    return capture.tap:isEnabled()
+  end)
+  if not ok or not enabled then return self:_endShortcutCapture("Could not start recording. Check Hammerspoon’s Accessibility access.") end
+  self:_sendShortcut()
 end
 
 function handlers.query(self, msg)
@@ -196,6 +377,7 @@ function handlers.closed(self)
 end
 
 function handlers.addFolder(self)
+  self:_endShortcutCapture()
   self._pickingFolder = true
   -- The panel never activates Hammerspoon, but the modal folder picker needs it active to take keys.
   hs.focus()
@@ -227,7 +409,8 @@ function handlers.removeFolder(self, msg)
   self:_sendFolders()
 end
 
-function handlers.enableBlur()
+function handlers.enableBlur(self)
+  self:_endShortcutCapture()
   hs.screenRecordingState(true)
   hs.urlevent.openURL(SCREEN_RECORDING_PANE)
 end
@@ -239,9 +422,15 @@ end
 
 --- SeekPop:bindHotkeys(mapping) -> self
 --- Method
---- Binds hotkeys, e.g. { toggle = { { "alt" }, "space" } }.
+--- Configures the fallback opener, e.g. { toggle = { { "alt" }, "space" } }.
 function obj:bindHotkeys(mapping)
-  hs.spoons.bindHotkeysToSpec({ toggle = hs.fnutils.partial(self.toggle, self) }, mapping)
+  if mapping.toggle then
+    self._fallbackShortcut = mapping.toggle
+    if self._wv and not self._usingSavedShortcut then
+      self:_restoreShortcut()
+      self:_sendShortcut()
+    end
+  end
   return self
 end
 
@@ -265,10 +454,12 @@ function obj:start()
     :level(hs.drawing.windowLevels.modalPanel)
     :behaviorAsLabels({ "canJoinAllSpaces", "fullScreenAuxiliary" })
     :windowCallback(function(action, _, focused)
+      if action == "closing" then self:_endShortcutCapture() end
       if action == "focusChange" and focused == false and not self._pickingFolder then self:_fire("hide") end
     end)
     :html(html)
   hs.urlevent.bind("seekpop", function() self:show() end)
+  self:_restoreShortcut()
   return self
 end
 
@@ -277,6 +468,9 @@ end
 --- Cancels any search and deletes the palette window.
 function obj:stop()
   if not self._wv then return self end
+  self:_endShortcutCapture()
+  if self._hotkey then self._hotkey:delete() end
+  self._hotkey, self._usingSavedShortcut = nil, nil
   hs.urlevent.bind("seekpop", nil)
   if self._run then self._run:cancel() end
   if self._closeTimer then self._closeTimer:stop() end

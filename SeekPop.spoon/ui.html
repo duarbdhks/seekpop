@@ -342,6 +342,8 @@ mark {
 .view-folders { box-sizing: border-box; padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
 .folders-head { display: flex; align-items: center; justify-content: space-between; }
 .folders-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+.shortcut-info { flex: 1; min-width: 0; }
+#shortcutStatus { margin-left: 0; }
 #roots { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .root {
   position: relative;
@@ -444,7 +446,7 @@ body[data-phase=hidden] *, body[data-phase=hidden] *::before, body[data-phase=hi
         <svg class="spark" viewBox="0 0 24 24"><path d="M12 2.5c.9 5.2 4.3 8.6 9.5 9.5-5.2.9-8.6 4.3-9.5 9.5-.9-5.2-4.3-8.6-9.5-9.5 5.2-.9 8.6-4.3 9.5-9.5z"/></svg>
       </div>
       <input id="q" type="text" placeholder="Search your files" aria-label="Search your files" aria-controls="rows" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      <button class="capsule" id="foldersBtn" data-action="folders" aria-pressed="false">Folders <kbd>⌘,</kbd></button>
+      <button class="capsule" id="foldersBtn" data-action="folders" aria-pressed="false">Settings <kbd>⌘,</kbd></button>
     </header>
     <div class="views">
       <section class="view view-search" id="search" data-content="results">
@@ -476,7 +478,14 @@ body[data-phase=hidden] *, body[data-phase=hidden] *::before, body[data-phase=hi
           <button class="btn primary" id="emptyAdd" data-action="addFolder" hidden>Add folder</button>
         </div>
       </section>
-      <section class="view view-folders" aria-label="Folders">
+      <section class="view view-folders" aria-label="Settings">
+        <div class="root">
+          <div class="shortcut-info">
+            <span id="shortcutLabel" class="root-path">Open or close SeekPop</span>
+            <p id="shortcutStatus" class="hint" role="status"></p>
+          </div>
+          <button class="btn" id="shortcutBtn" data-action="shortcut" aria-labelledby="shortcutLabel shortcutBtn" aria-describedby="shortcutStatus" aria-pressed="false">Not set</button>
+        </div>
         <div class="folders-head"><h2>Folders</h2><button class="btn" data-action="addFolder">Add folder…</button></div>
         <ul id="roots"></ul>
         <p class="hint">In the picker, press ⌘⇧. to show hidden folders or ⌘⇧G to type a path.</p>
@@ -510,6 +519,7 @@ const state = {
   phase: 'hidden', view: 'search', query: '', queryId: 0, searching: false,
   items: null, selected: -1, elapsedMs: null, warnings: [], preview: null,
   roots: null, screenRecording: true, blur: 'off', notice: null, resultsFor: null, pendingOpen: false, typedAt: 0,
+  shortcutRecording: false,
 };
 const timers = {};
 const later = (name, ms, fn) => { clearTimeout(timers[name]); timers[name] = setTimeout(fn, ms); };
@@ -517,7 +527,7 @@ const cancel = (...names) => names.forEach(n => clearTimeout(timers[n]));
 
 const hints = {
   search: [['↩', 'Open'], ['⌘↩', 'Reveal'], ['⌘C', 'Copy'], ['esc', 'Close']],
-  empty: [['⌘,', 'Folders'], ['esc', 'Close']],
+  empty: [['⌘,', 'Settings'], ['esc', 'Close']],
   folders: [['esc', 'Back']],
 };
 
@@ -731,6 +741,7 @@ function act(type) {
 }
 
 function setView(view) {
+  if (state.view === 'folders' && view === 'search') post({ type: 'shortcut', action: 'cancel' });
   state.view = view;
   render();
   if (view === 'search') input.focus();
@@ -821,6 +832,12 @@ const handlers = {
     const paths = roots => roots.map(r => r.path).join('\n');
     if (prev && paths(prev) !== paths(state.roots) && (state.phase === 'open' || state.phase === 'opening') && input.value.trim()) sendQuery(input.value);
   },
+  shortcut(msg) {
+    state.shortcutRecording = msg.recording;
+    $('shortcutBtn').textContent = msg.chord;
+    $('shortcutBtn').setAttribute('aria-pressed', msg.recording);
+    $('shortcutStatus').textContent = msg.status;
+  },
   done(msg) {
     if (!msg.ok) {
       state.notice = msg.message || 'Action failed';
@@ -900,6 +917,7 @@ input.addEventListener('input', () => {
 const clicks = {
   open: () => act('open'), reveal: () => act('reveal'), copy: () => act('copy'),
   folders: () => setView(state.view === 'folders' ? 'search' : 'folders'),
+  shortcut: () => post({ type: 'shortcut', action: state.shortcutRecording ? 'cancel' : 'begin' }),
   addFolder: () => post({ type: 'addFolder' }),
   enableBlur: () => post({ type: 'enableBlur' }),
 };

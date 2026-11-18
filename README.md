@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>Your hidden files deserve to be found.</strong><br>
-  Press <kbd>Option</kbd> + <kbd>Space</kbd> to search the text inside local files, even in folders like <code>~/.codex/plans</code>.
+  By default, press <kbd>Option</kbd> + <kbd>Space</kbd> to search the text inside local files, even in folders like <code>~/.codex/plans</code>.
 </p>
 
 <p align="center">
@@ -60,20 +60,22 @@ SeekPop runs as a Hammerspoon Spoon on macOS. You need [Hammerspoon](https://www
    spoon.SeekPop:start()
    ```
 
-4. Press <kbd>Option</kbd> + <kbd>Space</kbd>, choose **Folders**, and add a folder with a few text files. Search for a phrase you remember from one of them.
+4. Press <kbd>Option</kbd> + <kbd>Space</kbd>, choose **Settings**, and add a folder with a few text files. Search for a phrase you remember from one of them.
 
 ## Keyboard shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| Option + Space | Open or close SeekPop |
+| Option + Space (default) | Open or close SeekPop |
 | ↑ / ↓ or Ctrl + P / Ctrl + N | Move through results |
 | Return | Open the file in its default app. Press it while a query is running to open the first result when it arrives. |
 | Cmd + Return | Reveal the file in Finder |
 | Cmd + C | Copy the file. If you have selected query or preview text, copy that text. |
 | Cmd + Shift + C | Copy the file path as text |
-| Cmd + , | Show or hide the folder list |
-| Esc | Close the folder list, then the palette |
+| Cmd + , | Show or hide Settings |
+| Esc | Cancel shortcut entry, go back from Settings, or close the palette |
+
+To change the shortcut that opens SeekPop, press <kbd>Cmd</kbd> + <kbd>,</kbd> to open **Settings**. Click the current shortcut and press the new combination. SeekPop applies it when you release the key and saves it across Hammerspoon restarts.
 
 ## How it works
 
@@ -83,7 +85,7 @@ All query terms must appear in the file's contents or all must appear in its nam
 
 ## Configuration
 
-**Search folders.** SeekPop starts with an empty folder list. Open **Folders** with <kbd>Cmd</kbd> + <kbd>,</kbd> and choose **Add folder…**. In the picker, use <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>.</kbd> to show hidden folders, or <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> to type a path. Hammerspoon saves the list as `SeekPop.roots`.
+**Search folders.** SeekPop starts with an empty folder list. Open **Settings** with <kbd>Cmd</kbd> + <kbd>,</kbd> and choose **Add folder…**. In the picker, use <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>.</kbd> to show hidden folders, or <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> to type a path. Hammerspoon saves the list as `SeekPop.roots`.
 
 Set these fields on `spoon.SeekPop` after `hs.loadSpoon` and before `start()`.
 
@@ -94,7 +96,7 @@ Set these fields on `spoon.SeekPop` after `hs.loadSpoon` and before `start()`.
 | `maxFileSize` | `"2M"` | Size limit for content search, in ripgrep units |
 | `exclude` | `.git`, `node_modules`, `dist`, `build`, `.next`, `.DS_Store` | Files and folders to skip at any depth |
 
-**Appearance and privacy.** The palette follows macOS light or dark mode and Reduce Motion. It uses tinted glass by default when Hammerspoon lacks Screen Recording permission. To enable desktop blur, choose **Turn on** in the folder list or allow Hammerspoon in **System Settings → Privacy & Security → Screen & System Audio Recording**. SeekPop captures a still of the area behind the palette when it opens and keeps it in memory. It never writes that image to disk.
+**Appearance and privacy.** The palette follows macOS light or dark mode and Reduce Motion. It uses tinted glass by default when Hammerspoon lacks Screen Recording permission. To enable desktop blur, choose **Turn on** in **Settings** or allow Hammerspoon in **System Settings → Privacy & Security → Screen & System Audio Recording**. SeekPop captures a still of the area behind the palette when it opens and keeps it in memory. It never writes that image to disk.
 
 ### Search limits
 
@@ -119,16 +121,17 @@ Enable **Launch Hammerspoon at login** in Hammerspoon settings, or run `hs.autoL
 
 ## Troubleshooting
 
-- **Option + Space does nothing.** Check that Hammerspoon is running, has Accessibility access, and has reloaded its config. If a launcher such as ChatGPT is already using the shortcut, change one of the bindings in its settings or in `bindHotkeys`.
+- **The shortcut does nothing.** Check that Hammerspoon is running and has Accessibility access. If another app uses the shortcut, open the optional SeekPop launcher and choose a new shortcut in **Settings**. You can also change the fallback shortcut in `bindHotkeys` and reload Hammerspoon.
 - **ripgrep was not found.** Run `command -v rg` in Terminal. Install ripgrep if it is missing, or set `spoon.SeekPop.rgPath` to the absolute path it prints and reload Hammerspoon.
-- **A file is missing from results.** Check that its folder is in **Folders** and that Hammerspoon can read it. Check ripgrep's ignore rules, then try searching by filename.
+- **A file is missing from results.** Check that its folder is listed in **Settings** and that Hammerspoon can read it. Check ripgrep's ignore rules, then try searching by filename.
 
 ## Development and license
 
-Run the search tests from the repository root with Hammerspoon's `hs` CLI installed and `require("hs.ipc")` in your Hammerspoon config.
+Run the tests from the repository root with Hammerspoon's `hs` CLI installed and `require("hs.ipc")` in your Hammerspoon config.
 
 ```sh
 hs -c "dofile('$PWD/tests/search_test.lua')"
+hs -c "dofile('$PWD/tests/shortcut_test.lua')"
 ```
 
 SeekPop is released under the [MIT License](LICENSE).
