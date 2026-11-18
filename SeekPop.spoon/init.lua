@@ -37,7 +37,6 @@ local ROOTS_KEY = "SeekPop.roots"
 local SHORTCUT_KEY = "SeekPop.shortcut"
 local SHORTCUT_MODS = { "alt", "ctrl", "cmd", "shift" }
 local ESCAPE_KEY = 0x35
--- WebKit uses layout characters and falls back to physical keys for non-Latin input.
 local PALETTE_KEYS = {
   cmd = { [0x08] = true, [0x24] = true, [0x2b] = true, [0x4c] = true, c = true, [","] = true },
   ["cmd+shift"] = { [0x08] = true, c = true },
@@ -205,14 +204,14 @@ local function registerShortcut(self, mods, key, source, message)
       if capture and capture.currentKeycode == keycode then self:_endShortcutCapture() end
     end)
     chord = candidate.idx
-    -- Enabling a matching .idx silently shadows a Hammerspoon binding.
-    for _, active in ipairs(hs.hotkey.getHotkeys()) do
-      if active.idx == candidate.idx then
-        if active == self._hotkey then return true end
-        return false, "This shortcut is already used by Hammerspoon."
-      end
-    end
     if source then
+      -- Enabling a matching .idx silently shadows a Hammerspoon binding.
+      for _, active in ipairs(hs.hotkey.getHotkeys()) do
+        if active.idx == candidate.idx then
+          if active == self._hotkey then return true end
+          return false, "This shortcut is already used by Hammerspoon."
+        end
+      end
       local reserved = PALETTE_KEYS[table.concat(mods, "+")]
       if reserved and (reserved[keycode] or reserved[hs.keycodes.map[keycode]]) then
         return false, "This shortcut is already used inside SeekPop."

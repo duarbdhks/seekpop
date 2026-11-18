@@ -114,10 +114,12 @@ end
 
 local path = repo .. "/SeekPop.spoon/init.lua"
 local fallback = { toggle = { "Option", "SPACE", message = "Open SeekPop" } }
+local previousBinding = newHotkey("Option", 49, function() end):enable()
 local spoon = env.dofile(path)
 eq(spoon:bindHotkeys(fallback):start(), spoon, "chainable start")
 post("ready")
 eq(shown.chord, "⌥SPACE", "legacy opener shown")
+eq(active["⌥SPACE"] ~= previousBinding, true, "explicit legacy mapping takes priority")
 active["⌥SPACE"].pressed()
 eq(alert, "⌥SPACE: Open SeekPop", "legacy message retained")
 post("shortcut", "begin")
